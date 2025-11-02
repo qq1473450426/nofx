@@ -41,7 +41,12 @@ func (a *RegimeAgent) Analyze(btcData *market.Data) (*RegimeResult, error) {
 		return nil, fmt.Errorf("BTC数据不完整")
 	}
 
-	prompt := a.buildPrompt(btcData)
+	// 🚨 零信任原则：Go代码计算ATR%，不让AI计算
+	currentPrice := btcData.CurrentPrice
+	atr14 := btcData.LongerTermContext.ATR14
+	atrPct := (atr14 / currentPrice) * 100
+
+	prompt := a.buildPrompt(btcData, atrPct)
 
 	// 调用AI
 	response, err := a.mcpClient.CallWithMessages("", prompt)
@@ -55,22 +60,33 @@ func (a *RegimeAgent) Analyze(btcData *market.Data) (*RegimeResult, error) {
 		return nil, fmt.Errorf("解析结果失败: %w\n响应: %s", err, response)
 	}
 
+	// 🚨 Go代码验证ATR%的一致性（防止AI作弊）
+	if result.ATRPct > 0 {
+		// AI返回的ATR%与Go计算的ATR%应该一致（允许0.01的浮点误差）
+		diff := result.ATRPct - atrPct
+		if diff < -0.01 || diff > 0.01 {
+			return nil, fmt.Errorf("🚨 AI作弊：Go计算ATR%%=%.2f%%，但AI返回%.2f%%",
+				atrPct, result.ATRPct)
+		}
+	}
+
 	return result, nil
 }
 
 // buildPrompt 构建专注的体制分析prompt
-func (a *RegimeAgent) buildPrompt(btcData *market.Data) string {
+func (a *RegimeAgent) buildPrompt(btcData *market.Data, atrPct float64) string {
 	var sb strings.Builder
 
 	sb.WriteString("你是市场体制分析专家。专注分析BTC 4h数据，判断大盘体制。\n\n")
 
 	sb.WriteString("# 任务：执行强制三步验证\n\n")
 
-	sb.WriteString("**STEP 1: 计算BTC的4h ATR%**\n")
+	sb.WriteString("**STEP 1: ATR%已由Go代码计算**\n")
+	sb.WriteString(fmt.Sprintf("```\n"))
+	sb.WriteString(fmt.Sprintf("Go计算结果: BTC 4h ATR%% = %.2f%%\n", atrPct))
+	sb.WriteString(fmt.Sprintf("（ATR14=%.3f / 当前价格=%.2f × 100%%）\n", btcData.LongerTermContext.ATR14, btcData.CurrentPrice))
 	sb.WriteString("```\n")
-	sb.WriteString("ATR% = (4h ATR14 / 4h 当前价格) × 100%\n")
-	sb.WriteString("```\n")
-	sb.WriteString("在输出中必须写：\"BTC 4h ATR% = X.XX%\"\n\n")
+	sb.WriteString("⚠️ 你不需要计算ATR%，直接使用上面Go提供的结果即可\n\n")
 
 	sb.WriteString("**STEP 2: 判断波动率类型**\n")
 	sb.WriteString("```\n")
@@ -112,12 +128,14 @@ func (a *RegimeAgent) buildPrompt(btcData *market.Data) string {
 	sb.WriteString("```\n")
 	sb.WriteString("{\n")
 	sb.WriteString("  \"regime\": \"A2\",\n")
-	sb.WriteString("  \"atr_pct\": 1.04,\n")
+	sb.WriteString(fmt.Sprintf("  \"atr_pct\": %.2f,\n", atrPct))
 	sb.WriteString("  \"confidence\": 95,\n")
 	sb.WriteString("  \"strategy\": \"short_only\",\n")
-	sb.WriteString("  \"reasoning\": \"BTC 4h ATR% = 1.04% (>= 1.0%) → 有波动。Price 110540 < EMA50 110821 (满足) AND EMA50 110821 < EMA200 113297 (满足) → 体制=(A2)下降趋势\"\n")
+	sb.WriteString(fmt.Sprintf("  \"reasoning\": \"BTC 4h ATR%% = %.2f%% (>= 1.0%%) → 有波动。Price %.0f < EMA50 %.0f (满足) AND EMA50 %.0f < EMA200 %.0f (满足) → 体制=(A2)下降趋势\"\n",
+		atrPct, btcData.CurrentPrice, btcData.LongerTermContext.EMA50, btcData.LongerTermContext.EMA50, btcData.LongerTermContext.EMA200))
 	sb.WriteString("}\n")
 	sb.WriteString("```\n")
+	sb.WriteString("\n⚠️ 重要：atr_pct字段必须使用Go提供的值，不要自己计算！\n")
 
 	return sb.String()
 }

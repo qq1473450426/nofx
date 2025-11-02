@@ -50,6 +50,9 @@ func (a *SignalAgent) Detect(symbol string, marketData *market.Data, regime *Reg
 		return nil, fmt.Errorf("解析结果失败: %w\n响应: %s", err, response)
 	}
 
+	// 🚨 零信任原则：Go代码计算信号强度分数，覆盖AI的score
+	result.Score = a.calculateScore(len(result.SignalList), result.Direction, regime)
+
 	// Go代码验证（双重保险）
 	if err := a.validateResult(result, regime, marketData); err != nil {
 		result.Valid = false
@@ -162,8 +165,8 @@ func (a *SignalAgent) buildPrompt(symbol string, marketData *market.Data, regime
 	sb.WriteString("1. 逐个检查5个维度，在reasoning中写明每个维度的数值和判断\n")
 	sb.WriteString("2. **只有真正满足的维度**才能加入signal_list\n")
 	sb.WriteString("3. **如果≥3个维度同时成立** → valid=true, 输出方向和信号列表\n")
-	sb.WriteString("4. **如果<3个维度** → valid=false, direction=\"none\"\n")
-	sb.WriteString("5. 计算信号强度分数：基础分60 + 每个维度10分 + 体制完美匹配20分\n\n")
+	sb.WriteString("4. **如果<3个维度** → valid=false, direction=\"none\"\n\n")
+	sb.WriteString("⚠️ 注意：score字段将由Go代码计算，你不需要计算分数\n\n")
 
 	sb.WriteString("# 输出要求\n\n")
 	sb.WriteString("必须输出纯JSON（不要markdown代码块），格式：\n")
@@ -172,11 +175,12 @@ func (a *SignalAgent) buildPrompt(symbol string, marketData *market.Data, regime
 	sb.WriteString("  \"symbol\": \"BNBUSDT\",\n")
 	sb.WriteString("  \"direction\": \"short\",\n")
 	sb.WriteString("  \"signal_list\": [\"体制=(A2)下降趋势\", \"MACD<0且下降\", \"价格反弹EMA20受阻\"],\n")
-	sb.WriteString("  \"score\": 80,\n")
+	sb.WriteString("  \"score\": 0,\n")
 	sb.WriteString("  \"valid\": true,\n")
 	sb.WriteString("  \"reasoning\": \"维度1(体制): A2下降→满足 | 维度2(动量): MACD=-0.52<0→满足 | 维度3(位置): 价格1093.53 vs EMA20=1095→满足 | 维度4(成交量): 变化[-89.84%]<+20%→不满足 | 维度5(费率): 0.02%>0.01%→满足 | 共4个维度满足\"\n")
 	sb.WriteString("}\n")
 	sb.WriteString("```\n")
+	sb.WriteString("\n⚠️ 重要：score字段填0即可，Go代码会根据信号数量自动计算！\n")
 
 	return sb.String()
 }
@@ -304,4 +308,35 @@ func (a *SignalAgent) recalculateSignals(marketData *market.Data, regime *Regime
 	}
 
 	return validSignals
+}
+
+// calculateScore Go代码计算信号强度分数（零信任原则）
+// 规则：基础分60 + 每个信号10分 + 体制完美匹配20分
+func (a *SignalAgent) calculateScore(signalCount int, direction string, regime *RegimeResult) int {
+	score := 60 // 基础分
+
+	// 每个信号 +10分
+	score += signalCount * 10
+
+	// 体制完美匹配 +20分
+	isPerfectMatch := false
+	if direction == "long" && regime.Regime == "A1" {
+		isPerfectMatch = true // 上升趋势做多
+	} else if direction == "short" && regime.Regime == "A2" {
+		isPerfectMatch = true // 下降趋势做空
+	}
+
+	if isPerfectMatch {
+		score += 20
+	}
+
+	// 确保分数在合理范围内
+	if score > 100 {
+		score = 100
+	}
+	if score < 0 {
+		score = 0
+	}
+
+	return score
 }
