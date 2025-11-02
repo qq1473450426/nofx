@@ -51,7 +51,7 @@ func (a *SignalAgent) Detect(symbol string, marketData *market.Data, regime *Reg
 	}
 
 	// Go代码验证（双重保险）
-	if err := a.validateResult(result, regime); err != nil {
+	if err := a.validateResult(result, regime, marketData); err != nil {
 		result.Valid = false
 		result.Reasoning += fmt.Sprintf(" [验证失败: %v]", err)
 	}
@@ -196,8 +196,8 @@ func (a *SignalAgent) parseResult(response string) (*SignalResult, error) {
 	return &result, nil
 }
 
-// validateResult Go代码验证（双重保险）
-func (a *SignalAgent) validateResult(result *SignalResult, regime *RegimeResult) error {
+// validateResult Go代码验证（双重保险 + 硬验证市场数据）
+func (a *SignalAgent) validateResult(result *SignalResult, regime *RegimeResult, marketData *market.Data) error {
 	// 验证direction
 	validDirections := map[string]bool{"long": true, "short": true, "none": true}
 	if !validDirections[result.Direction] {
@@ -227,5 +227,81 @@ func (a *SignalAgent) validateResult(result *SignalResult, regime *RegimeResult)
 		return fmt.Errorf("valid=true但信号列表只有%d个（需≥3个）", len(result.SignalList))
 	}
 
+	// 🚨 新增：Go代码硬验证 - 重新计算所有信号维度，防止AI作弊
+	if result.Valid && result.Direction != "none" {
+		actualSignals := a.recalculateSignals(marketData, regime, result.Direction)
+		if actualSignals < 3 {
+			return fmt.Errorf("🚨 AI作弊检测：AI声称有%d个信号，但Go代码重新计算只有%d个有效信号（需≥3个）",
+				len(result.SignalList), actualSignals)
+		}
+	}
+
 	return nil
+}
+
+// recalculateSignals Go代码重新计算所有信号维度（Zero-Trust验证）
+func (a *SignalAgent) recalculateSignals(marketData *market.Data, regime *RegimeResult, direction string) int {
+	validSignals := 0
+
+	// 维度1: 体制/趋势匹配
+	if direction == "long" && (regime.Regime == "A1" || regime.Regime == "B") {
+		validSignals++
+	} else if direction == "short" && (regime.Regime == "A2" || regime.Regime == "B") {
+		validSignals++
+	}
+
+	// 维度2: 动量指标
+	if marketData.LongerTermContext != nil {
+		if direction == "long" {
+			// 做多：MACD>0 OR RSI从超卖区反弹
+			if marketData.CurrentMACD > 0 || (marketData.CurrentRSI7 > 30 && marketData.CurrentRSI7 < 50) {
+				validSignals++
+			}
+		} else if direction == "short" {
+			// 做空：MACD<0 OR RSI从超买区回落
+			if marketData.CurrentMACD < 0 || (marketData.CurrentRSI7 < 70 && marketData.CurrentRSI7 > 50) {
+				validSignals++
+			}
+		}
+	}
+
+	// 维度3: 位置/技术形态
+	currentPrice := marketData.CurrentPrice
+	ema20 := marketData.CurrentEMA20
+	if direction == "long" {
+		// 做多：价格在EMA20附近或之上
+		if currentPrice >= ema20*0.98 {
+			validSignals++
+		}
+	} else if direction == "short" {
+		// 做空：价格在EMA20附近或之下
+		if currentPrice <= ema20*1.02 {
+			validSignals++
+		}
+	}
+
+	// 维度4: 资金/成交量（最容易作弊的维度，严格验证）
+	if marketData.LongerTermContext != nil {
+		volumeChange := 0.0
+		if marketData.LongerTermContext.AverageVolume > 0 {
+			volumeChange = ((marketData.LongerTermContext.CurrentVolume - marketData.LongerTermContext.AverageVolume) / marketData.LongerTermContext.AverageVolume) * 100
+		}
+
+		// 🚨 关键：只有真正的成交量放大才算有效信号
+		// 成交量萎缩（负数）永远不满足条件！
+		if volumeChange > 20.0 {
+			validSignals++
+		}
+		// TODO: 添加OI增长验证（如果有OI数据）
+	}
+
+	// 维度5: 情绪/持仓
+	fundingRate := marketData.FundingRate * 100 // 转换为百分比
+	if direction == "long" && fundingRate < 0 {
+		validSignals++
+	} else if direction == "short" && fundingRate > 0.01 {
+		validSignals++
+	}
+
+	return validSignals
 }

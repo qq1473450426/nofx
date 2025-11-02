@@ -73,6 +73,21 @@ func (a *RiskAgent) Calculate(symbol string, direction string, marketData *marke
 		return nil, fmt.Errorf("AI选择的止盈倍数%.1f超出合理范围[6.0-20.0]", aiChoice.TakeProfitMultiple)
 	}
 
+	// 🚨 新增：验证AI选择的倍数是否符合ATR%规则
+	expectedStopMultiple, expectedMinTPMultiple, expectedMaxTPMultiple := a.getExpectedMultiples(atrPct, regime)
+
+	// 允许±0.5的浮动（考虑AI的微调空间）
+	if aiChoice.StopMultiple < expectedStopMultiple-0.5 || aiChoice.StopMultiple > expectedStopMultiple+0.5 {
+		return nil, fmt.Errorf("🚨 AI作弊：ATR%%=%.2f%%时期望止损%.1fx（±0.5），但AI选择了%.1fx",
+			atrPct, expectedStopMultiple, aiChoice.StopMultiple)
+	}
+
+	// 止盈倍数应该在期望范围内
+	if aiChoice.TakeProfitMultiple < expectedMinTPMultiple || aiChoice.TakeProfitMultiple > expectedMaxTPMultiple {
+		return nil, fmt.Errorf("🚨 AI作弊：ATR%%=%.2f%%+体制%s时期望止盈%.1f-%.1fx，但AI选择了%.1fx",
+			atrPct, regime.Regime, expectedMinTPMultiple, expectedMaxTPMultiple, aiChoice.TakeProfitMultiple)
+	}
+
 	// Go代码计算杠杆（零信任：不让AI算）
 	leverage := a.calculateLeverage(symbol, atrPct)
 
@@ -105,6 +120,22 @@ func (a *RiskAgent) Calculate(symbol string, direction string, marketData *marke
 		rewardPercent = (currentPrice - takeProfit) / currentPrice * 100
 	}
 	riskReward := rewardPercent / riskPercent
+
+	// 🚨 新增：验证R/R比的合理性
+	// 理论R/R比 = 止盈倍数 / 止损倍数
+	theoreticalRR := aiChoice.TakeProfitMultiple / aiChoice.StopMultiple
+	// 实际R/R比应该与理论R/R比接近（允许1%的浮点误差）
+	rrDifference := riskReward - theoreticalRR
+	if rrDifference < -0.01*theoreticalRR || rrDifference > 0.01*theoreticalRR {
+		return nil, fmt.Errorf("🚨 R/R计算异常：理论R/R=%.2f:1(%.1fx/%.1fx)，但实际计算=%.2f:1，差异=%.3f",
+			theoreticalRR, aiChoice.TakeProfitMultiple, aiChoice.StopMultiple, riskReward, rrDifference)
+	}
+
+	// 🚨 硬约束：R/R比必须≥2.0
+	if riskReward < 1.95 { // 允许0.05的浮点误差
+		return nil, fmt.Errorf("🚨 风险回报比过低：R/R=%.2f:1 < 2.0:1要求（止损%.1fx, 止盈%.1fx）",
+			riskReward, aiChoice.StopMultiple, aiChoice.TakeProfitMultiple)
+	}
 
 	// Go代码计算仓位大小（零信任：不让AI算）
 	positionSize := a.calculatePositionSize(symbol, accountEquity)
@@ -285,4 +316,46 @@ func (a *RiskAgent) validateResult(result *RiskParameters, symbol string, direct
 	}
 
 	return nil
+}
+
+// getExpectedMultiples 根据ATR%和体制计算期望的止损止盈倍数
+// 返回：(止损倍数, 最小止盈倍数, 最大止盈倍数)
+func (a *RiskAgent) getExpectedMultiples(atrPct float64, regime *RegimeResult) (float64, float64, float64) {
+	var stopMultiple, minTPMultiple, maxTPMultiple float64
+
+	// 根据ATR%确定基础倍数
+	if atrPct < 2.0 {
+		// 低波动
+		stopMultiple = 4.0
+		minTPMultiple = 8.0
+		maxTPMultiple = 8.0
+	} else if atrPct < 4.0 {
+		// 中波动
+		stopMultiple = 5.0
+		minTPMultiple = 10.0
+		maxTPMultiple = 10.0
+	} else {
+		// 高波动
+		stopMultiple = 6.0
+		minTPMultiple = 12.0
+		maxTPMultiple = 12.0
+	}
+
+	// 根据体制调整止盈倍数
+	if regime.Regime == "A1" || regime.Regime == "A2" {
+		// 趋势行情：提高止盈倍数
+		if atrPct < 2.0 {
+			minTPMultiple = 12.0
+			maxTPMultiple = 15.0
+		} else if atrPct < 4.0 {
+			minTPMultiple = 12.0
+			maxTPMultiple = 16.0
+		} else {
+			minTPMultiple = 14.0
+			maxTPMultiple = 18.0
+		}
+	}
+	// 体制B震荡使用基础倍数，已在上面设置
+
+	return stopMultiple, minTPMultiple, maxTPMultiple
 }
