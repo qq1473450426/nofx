@@ -102,12 +102,61 @@ func NewDecisionOrchestrator(mcpClient *mcp.Client, btcEthLeverage, altcoinLever
 	}
 }
 
+// getSharpeFromPerformance 从Performance接口中提取夏普比率
+func getSharpeFromPerformance(perf interface{}) (float64, bool) {
+	if perf == nil {
+		return 0, false
+	}
+
+	// 尝试直接类型断言为map
+	if perfMap, ok := perf.(map[string]interface{}); ok {
+		if sharpe, exists := perfMap["sharpe_ratio"]; exists {
+			if sharpeFloat, ok := sharpe.(float64); ok {
+				return sharpeFloat, true
+			}
+		}
+	}
+
+	// 如果不是map，尝试通过JSON序列化/反序列化
+	type PerformanceData struct {
+		SharpeRatio float64 `json:"sharpe_ratio"`
+	}
+	var perfData PerformanceData
+	if jsonData, err := json.Marshal(perf); err == nil {
+		if err := json.Unmarshal(jsonData, &perfData); err == nil {
+			return perfData.SharpeRatio, true
+		}
+	}
+
+	return 0, false
+}
+
 // GetFullDecision 获取AI的完整交易决策（多agent协作）
 func (o *DecisionOrchestrator) GetFullDecision(ctx *Context) (*FullDecision, error) {
 	var cotBuilder strings.Builder
 	decisions := []Decision{}
 
 	cotBuilder.WriteString("=== Multi-Agent Decision System ===\n\n")
+
+	// 🚨 关键修复：提取绩效记忆（夏普比率）
+	sharpeRatio, hasSharpe := getSharpeFromPerformance(ctx.Performance)
+	minConfidence := 80 // 默认信心度门槛
+
+	if !hasSharpe {
+		cotBuilder.WriteString("## 📊 绩效记忆: 无法获取夏普比率，使用默认门槛(80)\n\n")
+	} else if sharpeRatio < -0.5 {
+		minConfidence = 101 // 101 = 事实上的"禁止开仓"
+		cotBuilder.WriteString(fmt.Sprintf("## 📊 绩效记忆: 夏普=%.2f (<-0.5) → 🛑 停止开仓 (门槛>100，熔断)\n\n", sharpeRatio))
+	} else if sharpeRatio < 0 {
+		minConfidence = 85 // 轻微亏损，提高门槛
+		cotBuilder.WriteString(fmt.Sprintf("## 📊 绩效记忆: 夏普=%.2f (<0) → ⚠️ 严格控制 (门槛%d)\n\n", sharpeRatio, minConfidence))
+	} else if sharpeRatio < 0.7 {
+		minConfidence = 80 // 正收益，正常门槛
+		cotBuilder.WriteString(fmt.Sprintf("## 📊 绩效记忆: 夏普=%.2f (0-0.7) → ✅ 正常 (门槛%d)\n\n", sharpeRatio, minConfidence))
+	} else {
+		minConfidence = 75 // 优异表现，可适度降低门槛
+		cotBuilder.WriteString(fmt.Sprintf("## 📊 绩效记忆: 夏普=%.2f (>0.7) → 🚀 优异 (门槛%d)\n\n", sharpeRatio, minConfidence))
+	}
 
 	// STEP 1: 市场体制分析（使用BTC数据）
 	cotBuilder.WriteString("## STEP 1: 市场体制分析\n\n")
@@ -139,10 +188,11 @@ func (o *DecisionOrchestrator) GetFullDecision(ctx *Context) (*FullDecision, err
 	}()
 
 	// 启动STEP 3: 信号检测（goroutine 2）
+	// 🚨 关键修复：传递minConfidence到信号检测
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		sigResult = o.detectSignals(ctx, regime)
+		sigResult = o.detectSignals(ctx, regime, minConfidence, sharpeRatio)
 	}()
 
 	// 等待两个goroutine完成
@@ -325,7 +375,7 @@ func (o *DecisionOrchestrator) evaluatePositions(ctx *Context, regime *RegimeRes
 }
 
 // detectSignals STEP 3: 信号检测（并发执行）
-func (o *DecisionOrchestrator) detectSignals(ctx *Context, regime *RegimeResult) signalDetectionResult {
+func (o *DecisionOrchestrator) detectSignals(ctx *Context, regime *RegimeResult, minConfidence int, sharpeRatio float64) signalDetectionResult {
 	var cotBuilder strings.Builder
 	signalResults := []struct {
 		signal *SignalResult
@@ -363,7 +413,17 @@ func (o *DecisionOrchestrator) detectSignals(ctx *Context, regime *RegimeResult)
 		}
 	}
 
-	cotBuilder.WriteString(fmt.Sprintf("可开仓数量: %d\n\n", availableSlots))
+	// 🚨 关键修复：如果夏普比率过低触发熔断，跳过信号检测
+	if minConfidence > 100 {
+		cotBuilder.WriteString(fmt.Sprintf("⚠️ 夏普比率过低(%.2f)，已触发熔断，跳过新机会扫描\n\n", sharpeRatio))
+		return signalDetectionResult{
+			signalResults: signalResults,
+			cotText:       cotBuilder.String(),
+			err:           nil,
+		}
+	}
+
+	cotBuilder.WriteString(fmt.Sprintf("可开仓数量: %d | 绩效门槛: %d\n\n", availableSlots, minConfidence))
 
 	// 检测候选币种信号
 	for _, coin := range ctx.CandidateCoins {
@@ -385,13 +445,20 @@ func (o *DecisionOrchestrator) detectSignals(ctx *Context, regime *RegimeResult)
 		}
 
 		cotBuilder.WriteString(fmt.Sprintf("**%s**: %s (分数:%d)\n", coin.Symbol, signal.Direction, signal.Score))
+
+		// 🚨 关键修复：Go代码强制执行信心度门槛（绩效记忆）
 		if signal.Valid && signal.Direction != "none" {
-			cotBuilder.WriteString(fmt.Sprintf("  ✓ 信号有效: %v\n", signal.SignalList))
-			cotBuilder.WriteString(fmt.Sprintf("  - 分析: %s\n\n", signal.Reasoning))
-			signalResults = append(signalResults, struct {
-				signal *SignalResult
-				symbol string
-			}{signal, coin.Symbol})
+			if signal.Score >= minConfidence {
+				cotBuilder.WriteString(fmt.Sprintf("  ✓ 信号有效 且 信心度(%d) >= 门槛(%d)\n", signal.Score, minConfidence))
+				cotBuilder.WriteString(fmt.Sprintf("  - 信号: %v\n", signal.SignalList))
+				cotBuilder.WriteString(fmt.Sprintf("  - 分析: %s\n\n", signal.Reasoning))
+				signalResults = append(signalResults, struct {
+					signal *SignalResult
+					symbol string
+				}{signal, coin.Symbol})
+			} else {
+				cotBuilder.WriteString(fmt.Sprintf("  × 信号有效 但 信心度(%d) < 绩效门槛(%d)，已过滤 [绩效记忆拦截]\n\n", signal.Score, minConfidence))
+			}
 		} else {
 			cotBuilder.WriteString(fmt.Sprintf("  × 信号不足 (%d个维度)\n\n", len(signal.SignalList)))
 		}
