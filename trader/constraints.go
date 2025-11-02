@@ -39,11 +39,11 @@ func NewTradingConstraints() *TradingConstraints {
 		positionOpenTime:     make(map[string]time.Time),
 		dailyResetTime:       time.Now(),
 		hourlyResetTime:      time.Now(),
-		cooldownMinutes:      20, // 20分钟冷却期
-		maxDailyTrades:       8,  // 每天最多8次
-		maxHourlyTrades:      2,  // 每小时最多2次
-		minHoldingMinutes:    15, // 最短持有15分钟
-		maxPositions:         3,  // 最多持仓3个币种
+		cooldownMinutes:      20,  // 20分钟冷却期
+		maxDailyTrades:       999, // 实际取消日交易上限
+		maxHourlyTrades:      2,   // 每小时最多2次
+		minHoldingMinutes:    15,  // 最短持有15分钟
+		maxPositions:         3,   // 最多持仓3个币种
 	}
 }
 

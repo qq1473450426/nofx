@@ -10,12 +10,13 @@ import (
 
 // SignalResult 信号检测结果
 type SignalResult struct {
-	Symbol     string   `json:"symbol"`
-	Direction  string   `json:"direction"`  // "long", "short", "none"
-	SignalList []string `json:"signal_list"` // 匹配的信号维度列表
-	Score      int      `json:"score"`       // 信号强度分数 (0-100)
-	Valid      bool     `json:"valid"`       // 是否满足≥3个信号共振
-	Reasoning  string   `json:"reasoning"`   // 分析过程
+	Symbol          string   `json:"symbol"`
+	Direction       string   `json:"direction"`       // "long", "short", "none"
+	SignalList      []string `json:"signal_list"`     // 匹配的信号维度列表
+	Score           int      `json:"score"`           // 信号强度分数 (0-100)
+	ConfidenceLevel string   `json:"confidence_level"` // 信心等级: "high", "medium", "low"
+	Valid           bool     `json:"valid"`           // 是否满足≥3个信号共振
+	Reasoning       string   `json:"reasoning"`       // 分析过程
 }
 
 // SignalAgent 信号检测专家
@@ -52,6 +53,9 @@ func (a *SignalAgent) Detect(symbol string, marketData *market.Data, regime *Reg
 
 	// 🚨 零信任原则：Go代码计算信号强度分数，覆盖AI的score
 	result.Score = a.calculateScore(len(result.SignalList), result.Direction, regime)
+
+	// 🚨 Go代码计算信心等级（用于动态仓位大小）
+	result.ConfidenceLevel = a.calculateConfidenceLevel(result.Score)
 
 	// Go代码验证（双重保险）
 	if err := a.validateResult(result, regime, marketData); err != nil {
@@ -137,15 +141,19 @@ func (a *SignalAgent) buildPrompt(symbol string, marketData *market.Data, regime
 
 	sb.WriteString("**维度4: 资金/成交量（最容易作弊的维度！）**\n")
 	sb.WriteString("```\n")
-	sb.WriteString("做多/做空: 成交量放大(>+20%) OR OI增长(>+10%)\n")
+	sb.WriteString("A2下降趋势做空: 成交量放大(>+20%) OR 缩量反弹(<-50%)\n")
+	sb.WriteString("A1上升趋势做多: 成交量放大(>+20%) OR 缩量回调(<-50%)\n")
+	sb.WriteString("震荡市(B)做多/做空: 成交量放大(>+20%)\n")
 	sb.WriteString("```\n")
 	sb.WriteString("⚠️ **严格要求**：\n")
-	sb.WriteString("- 如果成交量变化是负数（如-64.07%），这**不满足**>+20%的条件！\n")
-	sb.WriteString("- 如果OI增长是负数，这**不满足**>+10%的条件！\n")
+	sb.WriteString("- 如果成交量变化是-64.07%，在A2下降趋势做空时**满足**缩量反弹(<-50%)条件\n")
+	sb.WriteString("- 如果成交量变化是-30%，**不满足**任何条件（既不是>+20%，也不是<-50%）\n")
+	sb.WriteString("- 如果成交量变化是+25%，**满足**成交量放大(>+20%)条件\n")
 	sb.WriteString("- reasoning中必须写：\n")
 	sb.WriteString("  - `维度4(成交量): 成交量变化[+X.XX%] > +20% → 满足` 或\n")
-	sb.WriteString("  - `维度4(成交量): 成交量变化[-X.XX%] < +20% → 不满足`\n")
-	sb.WriteString("- **禁止**：声称满足维度4，但实际数值是负数！这是作弊！\n\n")
+	sb.WriteString("  - `维度4(成交量): 成交量变化[-X.XX%] < -50% (缩量反弹/回调) → 满足` 或\n")
+	sb.WriteString("  - `维度4(成交量): 成交量变化[-30%] 不满足任何条件 → 不满足`\n")
+	sb.WriteString("- **禁止**：声称满足维度4，但实际数值不符合任何条件！\n\n")
 
 	sb.WriteString("**维度5: 情绪/持仓**\n")
 	sb.WriteString("```\n")
@@ -291,10 +299,24 @@ func (a *SignalAgent) recalculateSignals(marketData *market.Data, regime *Regime
 			volumeChange = ((marketData.LongerTermContext.CurrentVolume - marketData.LongerTermContext.AverageVolume) / marketData.LongerTermContext.AverageVolume) * 100
 		}
 
-		// 🚨 关键：只有真正的成交量放大才算有效信号
-		// 成交量萎缩（负数）永远不满足条件！
-		if volumeChange > 20.0 {
-			validSignals++
+		// 🚨 关键：不同体制下的成交量信号规则
+		if direction == "short" && regime.Regime == "A2" {
+			// A2下降趋势中做空：成交量放大(>20%) 或 缩量反弹(<-50%) 都是有效信号
+			// 技术分析：下降趋势中的缩量反弹通常意味着反弹无力，是做空机会
+			if volumeChange > 20.0 || volumeChange < -50.0 {
+				validSignals++
+			}
+		} else if direction == "long" && regime.Regime == "A1" {
+			// A1上升趋势中做多：成交量放大(>20%) 或 缩量回调(<-50%) 都是有效信号
+			// 技术分析：上升趋势中的缩量回调通常意味着回调无力，是做多机会
+			if volumeChange > 20.0 || volumeChange < -50.0 {
+				validSignals++
+			}
+		} else {
+			// 其他情况（震荡市B）：只接受成交量放大
+			if volumeChange > 20.0 {
+				validSignals++
+			}
 		}
 		// TODO: 添加OI增长验证（如果有OI数据）
 	}
@@ -339,4 +361,16 @@ func (a *SignalAgent) calculateScore(signalCount int, direction string, regime *
 	}
 
 	return score
+}
+
+// calculateConfidenceLevel Go代码计算信心等级（零信任原则）
+// 用于动态调整仓位大小
+func (a *SignalAgent) calculateConfidenceLevel(score int) string {
+	if score >= 90 {
+		return "high" // 高信心：完美体制匹配 + ≥4个信号
+	} else if score >= 80 {
+		return "medium" // 中等信心：正常信号
+	} else {
+		return "low" // 低信心：信号较弱
+	}
 }

@@ -48,7 +48,7 @@ func NewRiskAgent(mcpClient *mcp.Client, btcEthLeverage, altcoinLeverage int) *R
 }
 
 // Calculate 计算风险参数（Zero-Trust：Go代码做所有数学计算）
-func (a *RiskAgent) Calculate(symbol string, direction string, marketData *market.Data, regime *RegimeResult, accountEquity float64) (*RiskParameters, error) {
+func (a *RiskAgent) Calculate(symbol string, direction string, confidenceLevel string, marketData *market.Data, regime *RegimeResult, accountEquity float64) (*RiskParameters, error) {
 	if marketData == nil || marketData.LongerTermContext == nil {
 		return nil, fmt.Errorf("市场数据不完整")
 	}
@@ -162,7 +162,7 @@ func (a *RiskAgent) Calculate(symbol string, direction string, marketData *marke
 	}
 
 	// Go代码计算仓位大小（零信任：不让AI算）
-	positionSize := a.calculatePositionSize(symbol, accountEquity)
+	positionSize := a.calculatePositionSize(symbol, confidenceLevel, accountEquity)
 
 	// 构建reasoning（包含Go代码计算的所有数值，以及是否进行了强平价调整）
 	reasoningPrefix := "Go计算"
@@ -287,13 +287,30 @@ func (a *RiskAgent) calculateLeverage(symbol string, atrPct float64) int {
 	return leverage
 }
 
-// calculatePositionSize Go代码计算仓位大小（零信任）
-func (a *RiskAgent) calculatePositionSize(symbol string, accountEquity float64) float64 {
-	// BTC/ETH: 5-10倍净值，山寨币: 0.8-1.5倍净值
+// calculatePositionSize Go代码计算仓位大小（零信任 + 动态调整）
+func (a *RiskAgent) calculatePositionSize(symbol string, confidenceLevel string, accountEquity float64) float64 {
+	// 基础倍数
+	var baseMultiplier float64
 	if symbol == "BTCUSDT" || symbol == "ETHUSDT" {
-		return accountEquity * 8.0 // 中间值
+		baseMultiplier = 8.0 // BTC/ETH: 5-10倍净值
+	} else {
+		baseMultiplier = 1.0 // 山寨币: 0.8-1.5倍净值
 	}
-	return accountEquity * 1.0 // 中间值
+
+	// 根据信心等级调整倍数
+	var confidenceAdjustment float64
+	switch confidenceLevel {
+	case "high":
+		confidenceAdjustment = 1.5 // 高信心：150%仓位
+	case "medium":
+		confidenceAdjustment = 1.0 // 中等信心：100%仓位（默认）
+	case "low":
+		confidenceAdjustment = 0.8 // 低信心：80%仓位
+	default:
+		confidenceAdjustment = 1.0 // 未知等级：使用默认
+	}
+
+	return accountEquity * baseMultiplier * confidenceAdjustment
 }
 
 // validateResult Go代码验证（双重保险）

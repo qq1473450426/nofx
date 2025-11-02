@@ -1,0 +1,129 @@
+{
+  "account": {
+    "total_equity": 10000,
+    "available_balance": 7500,
+    "total_pnl": 120,
+    "total_pnl_pct": 1.2,
+    "margin_used": 2500,
+    "margin_used_pct": 25,
+    "position_count": 2
+  },
+  "positions": [
+    {
+      "symbol": "SOLUSDT",
+      "side": "short",
+      "entry_price": 180.12,
+      "mark_price": 182.4,
+      "unrealized_pnl": -80,
+      "unrealized_pnl_pct": -1.27,
+      "leverage": 5,
+      "holding_minutes": 65
+    },
+    {
+      "symbol": "BNBUSDT",
+      "side": "long",
+      "entry_price": 520.7,
+      "mark_price": 534.2,
+      "unrealized_pnl": 120,
+      "unrealized_pnl_pct": 2.58,
+      "leverage": 4,
+      "holding_minutes": 18
+    }
+  ],
+  "candidate_coins": [
+    {"symbol": "XRPUSDT", "sources": ["ai500"]},
+    {"symbol": "DOGEUSDT", "sources": ["ai500", "oi_top"]}
+  ],
+  "market_data": {
+    "BTCUSDT": {
+      "current_price": 108200,
+      "price_change_1h": 0.6,
+      "price_change_4h": 1.8,
+      "funding_rate": -0.012,
+      "longer_term": {
+        "ema20": 106800,
+        "ema50": 104500,
+        "ema200": 98000,
+        "atr14": 800,
+        "atr14_pct": "0.74%",
+        "macd": 0.45
+      }
+    },
+    "ETHUSDT": {
+      "current_price": 3900,
+      "price_change_1h": 0.8,
+      "price_change_4h": 2.1,
+      "funding_rate": -0.01,
+      "longer_term": {
+        "ema20": 3720,
+        "ema50": 3600,
+        "ema200": 3200,
+        "atr14": 65,
+        "atr14_pct": "1.67%",
+        "macd": 0.37
+      }
+    },
+    "SOLUSDT": {
+      "current_price": 182.4,
+      "price_change_1h": 1.2,
+      "price_change_4h": 3.5,
+      "funding_rate": 0.018,
+      "intraday": {"rsi7": 78},
+      "longer_term": {
+        "ema20": 179.1,
+        "ema50": 176.3,
+        "ema200": 150.4,
+        "atr14": 4.2,
+        "atr14_pct": "2.30%",
+        "macd": -0.15
+      }
+    },
+    "BNBUSDT": {
+      "current_price": 534.2,
+      "price_change_1h": 0.7,
+      "price_change_4h": 2.6,
+      "funding_rate": -0.006,
+      "intraday": {"rsi7": 42},
+      "longer_term": {
+        "ema20": 528.7,
+        "ema50": 523.1,
+        "ema200": 480.0,
+        "atr14": 11.5,
+        "atr14_pct": "2.15%",
+        "macd": 0.32
+      }
+    },
+    "XRPUSDT": {
+      "current_price": 0.54,
+      "price_change_1h": -0.3,
+      "price_change_4h": -1.1,
+      "funding_rate": 0.023,
+      "intraday": {"rsi7": 65},
+      "longer_term": {
+        "ema20": 0.56,
+        "ema50": 0.58,
+        "ema200": 0.62,
+        "atr14": 0.007,
+        "atr14_pct": "1.30%",
+        "macd": -0.08
+      }
+    },
+    "DOGEUSDT": {
+      "current_price": 0.188,
+      "price_change_1h": 0.9,
+      "price_change_4h": 2.7,
+      "funding_rate": -0.004,
+      "intraday": {"rsi7": 55},
+      "longer_term": {
+        "ema20": 0.182,
+        "ema50": 0.175,
+        "ema200": 0.162,
+        "atr14": 0.004,
+        "atr14_pct": "2.13%",
+        "macd": 0.12
+      }
+    }
+  },
+  "performance": {"sharpe_ratio": -0.11},
+  "leverage_config": {"btc_eth": 5, "alt": 3}
+}
