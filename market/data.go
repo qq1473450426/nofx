@@ -8,7 +8,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// httpClient 带超时的HTTP客户端（10秒超时，避免阻塞）
+var httpClient = &http.Client{
+	Timeout: 10 * time.Second,
+}
 
 // Data 市场数据结构
 type Data struct {
@@ -27,8 +33,9 @@ type Data struct {
 
 // OIData Open Interest数据
 type OIData struct {
-	Latest  float64
-	Average float64
+	Latest float64
+	// ⚠️ 移除了 Average 字段：之前使用 oi * 0.999 伪造数据，误导AI分析
+	// 如需真实平均OI，应调用 openInterestHist API 计算
 }
 
 // IntradayData 日内数据(3分钟间隔)
@@ -44,6 +51,7 @@ type IntradayData struct {
 type LongerTermData struct {
 	EMA20         float64
 	EMA50         float64
+	EMA200        float64 // ✅ 添加EMA200用于趋势判断
 	ATR3          float64
 	ATR14         float64
 	CurrentVolume float64
@@ -74,8 +82,8 @@ func Get(symbol string) (*Data, error) {
 		return nil, fmt.Errorf("获取3分钟K线失败: %v", err)
 	}
 
-	// 获取4小时K线数据 (最近10个)
-	klines4h, err := getKlines(symbol, "4h", 60) // 多获取用于计算指标
+	// 获取4小时K线数据 (最近220个，用于计算EMA200)
+	klines4h, err := getKlines(symbol, "4h", 220) // ✅ 增加到220根以支持EMA200计算
 	if err != nil {
 		return nil, fmt.Errorf("获取4小时K线失败: %v", err)
 	}
@@ -109,7 +117,7 @@ func Get(symbol string) (*Data, error) {
 	oiData, err := getOpenInterestData(symbol)
 	if err != nil {
 		// OI失败不影响整体,使用默认值
-		oiData = &OIData{Latest: 0, Average: 0}
+		oiData = &OIData{Latest: 0}
 	}
 
 	// 获取Funding Rate
@@ -141,11 +149,18 @@ func getKlines(symbol, interval string, limit int) ([]Kline, error) {
 	url := fmt.Sprintf("https://fapi.binance.com/fapi/v1/klines?symbol=%s&interval=%s&limit=%d",
 		symbol, interval, limit)
 
-	resp, err := http.Get(url)
+	// ✅ 修复: 使用带超时的HTTP客户端（10秒超时）
+	resp, err := httpClient.Get(url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("HTTP请求失败: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// ✅ 修复: 检查HTTP状态码（避免将429限流错误当作JSON解析失败）
+	if resp.StatusCode != 200 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -261,6 +276,129 @@ func calculateRSI(klines []Kline, period int) float64 {
 	return rsi
 }
 
+// calculateEMASeries 计算EMA序列（O(n)复杂度，返回完整序列）
+func calculateEMASeries(klines []Kline, period int) []float64 {
+	if len(klines) < period {
+		return []float64{}
+	}
+
+	result := make([]float64, len(klines))
+
+	// 计算SMA作为初始EMA
+	sum := 0.0
+	for i := 0; i < period; i++ {
+		sum += klines[i].Close
+	}
+	ema := sum / float64(period)
+	result[period-1] = ema
+
+	// 计算EMA序列
+	multiplier := 2.0 / float64(period+1)
+	for i := period; i < len(klines); i++ {
+		ema = (klines[i].Close-ema)*multiplier + ema
+		result[i] = ema
+	}
+
+	return result
+}
+
+// calculateMACDSeries 计算MACD序列（O(n)复杂度，返回完整序列）
+func calculateMACDSeries(klines []Kline) []float64 {
+	if len(klines) < 26 {
+		return []float64{}
+	}
+
+	// 计算EMA12序列
+	ema12Series := make([]float64, len(klines))
+	sum12 := 0.0
+	for i := 0; i < 12; i++ {
+		sum12 += klines[i].Close
+	}
+	ema12 := sum12 / 12.0
+	ema12Series[11] = ema12
+	multiplier12 := 2.0 / 13.0
+	for i := 12; i < len(klines); i++ {
+		ema12 = (klines[i].Close-ema12)*multiplier12 + ema12
+		ema12Series[i] = ema12
+	}
+
+	// 计算EMA26序列
+	ema26Series := make([]float64, len(klines))
+	sum26 := 0.0
+	for i := 0; i < 26; i++ {
+		sum26 += klines[i].Close
+	}
+	ema26 := sum26 / 26.0
+	ema26Series[25] = ema26
+	multiplier26 := 2.0 / 27.0
+	for i := 26; i < len(klines); i++ {
+		ema26 = (klines[i].Close-ema26)*multiplier26 + ema26
+		ema26Series[i] = ema26
+	}
+
+	// 计算MACD序列 = EMA12 - EMA26
+	result := make([]float64, len(klines))
+	for i := 25; i < len(klines); i++ {
+		result[i] = ema12Series[i] - ema26Series[i]
+	}
+
+	return result
+}
+
+// calculateRSISeries 计算RSI序列（O(n)复杂度，返回完整序列）
+func calculateRSISeries(klines []Kline, period int) []float64 {
+	if len(klines) <= period {
+		return []float64{}
+	}
+
+	result := make([]float64, len(klines))
+
+	gains := 0.0
+	losses := 0.0
+
+	// 计算初始平均涨跌幅
+	for i := 1; i <= period; i++ {
+		change := klines[i].Close - klines[i-1].Close
+		if change > 0 {
+			gains += change
+		} else {
+			losses += -change
+		}
+	}
+
+	avgGain := gains / float64(period)
+	avgLoss := losses / float64(period)
+
+	// 计算第一个RSI值
+	if avgLoss == 0 {
+		result[period] = 100
+	} else {
+		rs := avgGain / avgLoss
+		result[period] = 100 - (100 / (1 + rs))
+	}
+
+	// 使用Wilder平滑方法计算后续RSI序列
+	for i := period + 1; i < len(klines); i++ {
+		change := klines[i].Close - klines[i-1].Close
+		if change > 0 {
+			avgGain = (avgGain*float64(period-1) + change) / float64(period)
+			avgLoss = (avgLoss * float64(period-1)) / float64(period)
+		} else {
+			avgGain = (avgGain * float64(period-1)) / float64(period)
+			avgLoss = (avgLoss*float64(period-1) + (-change)) / float64(period)
+		}
+
+		if avgLoss == 0 {
+			result[i] = 100
+		} else {
+			rs := avgGain / avgLoss
+			result[i] = 100 - (100 / (1 + rs))
+		}
+	}
+
+	return result
+}
+
 // calculateATR 计算ATR
 func calculateATR(klines []Kline, period int) float64 {
 	if len(klines) <= period {
@@ -305,35 +443,58 @@ func calculateIntradaySeries(klines []Kline) *IntradayData {
 		RSI14Values: make([]float64, 0, 10),
 	}
 
+	// ✅ 优化：预先计算完整序列的指标，然后只取最后10个点
+	// 避免在循环中重复计算（O(n²) → O(n)）
+	totalLen := len(klines)
+	if totalLen == 0 {
+		return data
+	}
+
+	// 预计算完整序列的指标（只计算一次）
+	var fullEMA20 []float64
+	var fullMACD []float64
+	var fullRSI7 []float64
+	var fullRSI14 []float64
+
+	// 计算EMA20序列（需要至少20个点）
+	if totalLen >= 20 {
+		fullEMA20 = calculateEMASeries(klines, 20)
+	}
+
+	// 计算MACD序列（需要至少26个点）
+	if totalLen >= 26 {
+		fullMACD = calculateMACDSeries(klines)
+	}
+
+	// 计算RSI序列
+	if totalLen >= 8 {
+		fullRSI7 = calculateRSISeries(klines, 7)
+	}
+	if totalLen >= 15 {
+		fullRSI14 = calculateRSISeries(klines, 14)
+	}
+
 	// 获取最近10个数据点
-	start := len(klines) - 10
+	start := totalLen - 10
 	if start < 0 {
 		start = 0
 	}
 
-	for i := start; i < len(klines); i++ {
+	for i := start; i < totalLen; i++ {
 		data.MidPrices = append(data.MidPrices, klines[i].Close)
 
-		// 计算每个点的EMA20
-		if i >= 19 {
-			ema20 := calculateEMA(klines[:i+1], 20)
-			data.EMA20Values = append(data.EMA20Values, ema20)
+		// 从预计算的序列中取对应的值
+		if i < len(fullEMA20) {
+			data.EMA20Values = append(data.EMA20Values, fullEMA20[i])
 		}
-
-		// 计算每个点的MACD
-		if i >= 25 {
-			macd := calculateMACD(klines[:i+1])
-			data.MACDValues = append(data.MACDValues, macd)
+		if i < len(fullMACD) {
+			data.MACDValues = append(data.MACDValues, fullMACD[i])
 		}
-
-		// 计算每个点的RSI
-		if i >= 7 {
-			rsi7 := calculateRSI(klines[:i+1], 7)
-			data.RSI7Values = append(data.RSI7Values, rsi7)
+		if i < len(fullRSI7) {
+			data.RSI7Values = append(data.RSI7Values, fullRSI7[i])
 		}
-		if i >= 14 {
-			rsi14 := calculateRSI(klines[:i+1], 14)
-			data.RSI14Values = append(data.RSI14Values, rsi14)
+		if i < len(fullRSI14) {
+			data.RSI14Values = append(data.RSI14Values, fullRSI14[i])
 		}
 	}
 
@@ -350,6 +511,7 @@ func calculateLongerTermData(klines []Kline) *LongerTermData {
 	// 计算EMA
 	data.EMA20 = calculateEMA(klines, 20)
 	data.EMA50 = calculateEMA(klines, 50)
+	data.EMA200 = calculateEMA(klines, 200) // ✅ 计算EMA200
 
 	// 计算ATR
 	data.ATR3 = calculateATR(klines, 3)
@@ -366,20 +528,40 @@ func calculateLongerTermData(klines []Kline) *LongerTermData {
 		data.AverageVolume = sum / float64(len(klines))
 	}
 
-	// 计算MACD和RSI序列
-	start := len(klines) - 10
+	// ✅ 优化：预先计算完整序列的指标，然后只取最后10个点
+	// 避免在循环中重复计算（O(n²) → O(n)）
+	totalLen := len(klines)
+	if totalLen == 0 {
+		return data
+	}
+
+	// 预计算完整序列的指标（只计算一次）
+	var fullMACD []float64
+	var fullRSI14 []float64
+
+	// 计算MACD序列（需要至少26个点）
+	if totalLen >= 26 {
+		fullMACD = calculateMACDSeries(klines)
+	}
+
+	// 计算RSI14序列（需要至少15个点）
+	if totalLen >= 15 {
+		fullRSI14 = calculateRSISeries(klines, 14)
+	}
+
+	// 获取最近10个数据点
+	start := totalLen - 10
 	if start < 0 {
 		start = 0
 	}
 
-	for i := start; i < len(klines); i++ {
-		if i >= 25 {
-			macd := calculateMACD(klines[:i+1])
-			data.MACDValues = append(data.MACDValues, macd)
+	for i := start; i < totalLen; i++ {
+		// 从预计算的序列中取对应的值
+		if i < len(fullMACD) && fullMACD[i] != 0 {
+			data.MACDValues = append(data.MACDValues, fullMACD[i])
 		}
-		if i >= 14 {
-			rsi14 := calculateRSI(klines[:i+1], 14)
-			data.RSI14Values = append(data.RSI14Values, rsi14)
+		if i < len(fullRSI14) && fullRSI14[i] != 0 {
+			data.RSI14Values = append(data.RSI14Values, fullRSI14[i])
 		}
 	}
 
@@ -390,11 +572,18 @@ func calculateLongerTermData(klines []Kline) *LongerTermData {
 func getOpenInterestData(symbol string) (*OIData, error) {
 	url := fmt.Sprintf("https://fapi.binance.com/fapi/v1/openInterest?symbol=%s", symbol)
 
-	resp, err := http.Get(url)
+	// ✅ 修复: 使用带超时的HTTP客户端
+	resp, err := httpClient.Get(url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("HTTP请求失败: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// ✅ 修复: 检查HTTP状态码
+	if resp.StatusCode != 200 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -414,8 +603,9 @@ func getOpenInterestData(symbol string) (*OIData, error) {
 	oi, _ := strconv.ParseFloat(result.OpenInterest, 64)
 
 	return &OIData{
-		Latest:  oi,
-		Average: oi * 0.999, // 近似平均值
+		Latest: oi,
+		// ✅ 移除了伪造的 Average: oi * 0.999
+		// 如需真实平均OI，应调用 /fapi/v1/openInterestHist API
 	}, nil
 }
 
@@ -423,11 +613,18 @@ func getOpenInterestData(symbol string) (*OIData, error) {
 func getFundingRate(symbol string) (float64, error) {
 	url := fmt.Sprintf("https://fapi.binance.com/fapi/v1/premiumIndex?symbol=%s", symbol)
 
-	resp, err := http.Get(url)
+	// ✅ 修复: 使用带超时的HTTP客户端
+	resp, err := httpClient.Get(url)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("HTTP请求失败: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// ✅ 修复: 检查HTTP状态码
+	if resp.StatusCode != 200 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return 0, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -463,8 +660,8 @@ func Format(data *Data) string {
 		data.Symbol))
 
 	if data.OpenInterest != nil {
-		sb.WriteString(fmt.Sprintf("Open Interest: Latest: %.2f Average: %.2f\n\n",
-			data.OpenInterest.Latest, data.OpenInterest.Average))
+		sb.WriteString(fmt.Sprintf("Open Interest (Latest): %.2f\n\n",
+			data.OpenInterest.Latest))
 	}
 
 	sb.WriteString(fmt.Sprintf("Funding Rate: %.2e\n\n", data.FundingRate))
@@ -496,8 +693,8 @@ func Format(data *Data) string {
 	if data.LongerTermContext != nil {
 		sb.WriteString("Longer‑term context (4‑hour timeframe):\n\n")
 
-		sb.WriteString(fmt.Sprintf("20‑Period EMA: %.3f vs. 50‑Period EMA: %.3f\n\n",
-			data.LongerTermContext.EMA20, data.LongerTermContext.EMA50))
+		sb.WriteString(fmt.Sprintf("20‑Period EMA: %.3f vs. 50‑Period EMA: %.3f vs. 200‑Period EMA: %.3f\n\n",
+			data.LongerTermContext.EMA20, data.LongerTermContext.EMA50, data.LongerTermContext.EMA200)) // ✅ 添加EMA200输出
 
 		sb.WriteString(fmt.Sprintf("3‑Period ATR: %.3f vs. 14‑Period ATR: %.3f\n\n",
 			data.LongerTermContext.ATR3, data.LongerTermContext.ATR14))

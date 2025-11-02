@@ -70,9 +70,9 @@ function App() {
       : null,
     () => api.getStatus(selectedTraderId),
     {
-      refreshInterval: 15000, // 15秒刷新（配合后端15秒缓存）
+      refreshInterval: 60000, // 60秒刷新（配合后端60秒缓存，防止API限流）
       revalidateOnFocus: false, // 禁用聚焦时重新验证，减少请求
-      dedupingInterval: 10000, // 10秒去重，防止短时间内重复请求
+      dedupingInterval: 30000, // 30秒去重，防止短时间内重复请求
     }
   );
 
@@ -82,9 +82,9 @@ function App() {
       : null,
     () => api.getAccount(selectedTraderId),
     {
-      refreshInterval: 15000, // 15秒刷新（配合后端15秒缓存）
+      refreshInterval: 60000, // 60秒刷新（配合后端60秒缓存，防止API限流）
       revalidateOnFocus: false, // 禁用聚焦时重新验证，减少请求
-      dedupingInterval: 10000, // 10秒去重，防止短时间内重复请求
+      dedupingInterval: 30000, // 30秒去重，防止短时间内重复请求
     }
   );
 
@@ -94,9 +94,9 @@ function App() {
       : null,
     () => api.getPositions(selectedTraderId),
     {
-      refreshInterval: 15000, // 15秒刷新（配合后端15秒缓存）
+      refreshInterval: 60000, // 60秒刷新（配合后端60秒缓存，防止API限流）
       revalidateOnFocus: false, // 禁用聚焦时重新验证，减少请求
-      dedupingInterval: 10000, // 10秒去重，防止短时间内重复请求
+      dedupingInterval: 30000, // 30秒去重，防止短时间内重复请求
     }
   );
 

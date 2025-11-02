@@ -26,6 +26,7 @@ type AutoTraderConfig struct {
 	// 币安API配置
 	BinanceAPIKey    string
 	BinanceSecretKey string
+	BinanceTestnet   bool // 是否使用币安测试网
 
 	// Hyperliquid配置
 	HyperliquidPrivateKey string
@@ -74,7 +75,8 @@ type AutoTrader struct {
 	config                AutoTraderConfig
 	trader                Trader // 使用Trader接口（支持多平台）
 	mcpClient             *mcp.Client
-	decisionLogger        *logger.DecisionLogger // 决策日志记录器
+	decisionLogger        *logger.DecisionLogger  // 决策日志记录器
+	constraints           *TradingConstraints      // 交易硬约束管理器
 	initialBalance        float64
 	dailyPnL              float64
 	lastResetTime         time.Time
@@ -136,7 +138,7 @@ func NewAutoTrader(config AutoTraderConfig) (*AutoTrader, error) {
 	switch config.Exchange {
 	case "binance":
 		log.Printf("🏦 [%s] 使用币安合约交易", config.Name)
-		trader = NewFuturesTrader(config.BinanceAPIKey, config.BinanceSecretKey)
+		trader = NewFuturesTrader(config.BinanceAPIKey, config.BinanceSecretKey, config.BinanceTestnet)
 	case "hyperliquid":
 		log.Printf("🏦 [%s] 使用Hyperliquid交易", config.Name)
 		trader, err = NewHyperliquidTrader(config.HyperliquidPrivateKey, config.HyperliquidWalletAddr, config.HyperliquidTestnet)
@@ -149,6 +151,9 @@ func NewAutoTrader(config AutoTraderConfig) (*AutoTrader, error) {
 		if err != nil {
 			return nil, fmt.Errorf("初始化Aster交易器失败: %w", err)
 		}
+	case "mock":
+		log.Printf("🧪 [%s] 使用本地模拟交易（真实市场数据）", config.Name)
+		trader = NewMockTrader(config.InitialBalance)
 	default:
 		return nil, fmt.Errorf("不支持的交易平台: %s", config.Exchange)
 	}
@@ -162,6 +167,10 @@ func NewAutoTrader(config AutoTraderConfig) (*AutoTrader, error) {
 	logDir := fmt.Sprintf("decision_logs/%s", config.ID)
 	decisionLogger := logger.NewDecisionLogger(logDir)
 
+	// 初始化交易硬约束管理器
+	constraints := NewTradingConstraints()
+	log.Printf("🛡️ [%s] 硬约束已启用: 冷却期20分钟 | 日上限8次 | 时上限2次 | 最短持仓15分钟", config.Name)
+
 	return &AutoTrader{
 		id:                    config.ID,
 		name:                  config.Name,
@@ -171,6 +180,7 @@ func NewAutoTrader(config AutoTraderConfig) (*AutoTrader, error) {
 		trader:                trader,
 		mcpClient:             mcpClient,
 		decisionLogger:        decisionLogger,
+		constraints:           constraints,
 		initialBalance:        config.InitialBalance,
 		lastResetTime:         time.Now(),
 		startTime:             time.Now(),
@@ -284,6 +294,46 @@ func (at *AutoTrader) runCycle() error {
 
 	log.Printf("📊 账户净值: %.2f USDT | 可用: %.2f USDT | 持仓: %d",
 		ctx.Account.TotalEquity, ctx.Account.AvailableBalance, ctx.Account.PositionCount)
+
+	// ✅ 修复: 检查风险控制参数（MaxDailyLoss、MaxDrawdown）
+	if at.config.MaxDailyLoss > 0 || at.config.MaxDrawdown > 0 {
+		// 计算日盈亏百分比
+		dailyPnLPct := 0.0
+		if at.initialBalance > 0 {
+			dailyPnLPct = (at.dailyPnL / at.initialBalance) * 100
+		}
+
+		// 计算最大回撤百分比
+		drawdownPct := 0.0
+		if at.initialBalance > 0 && ctx.Account.TotalEquity < at.initialBalance {
+			drawdownPct = ((at.initialBalance - ctx.Account.TotalEquity) / at.initialBalance) * 100
+		}
+
+		log.Printf("📊 风险监控: 日盈亏%.2f%% (限制%.0f%%) | 回撤%.2f%% (限制%.0f%%)",
+			dailyPnLPct, at.config.MaxDailyLoss, drawdownPct, at.config.MaxDrawdown)
+
+		// 检查日亏损限制
+		if at.config.MaxDailyLoss > 0 && dailyPnLPct < -at.config.MaxDailyLoss {
+			at.stopUntil = time.Now().Add(at.config.StopTradingTime)
+			log.Printf("🛑 风险控制触发: 日亏损%.2f%% 超过限制%.0f%%, 暂停交易%.0f分钟",
+				dailyPnLPct, at.config.MaxDailyLoss, at.config.StopTradingTime.Minutes())
+			record.Success = false
+			record.ErrorMessage = fmt.Sprintf("日亏损%.2f%% 超限，暂停交易", dailyPnLPct)
+			at.decisionLogger.LogDecision(record)
+			return nil
+		}
+
+		// 检查最大回撤限制
+		if at.config.MaxDrawdown > 0 && drawdownPct > at.config.MaxDrawdown {
+			at.stopUntil = time.Now().Add(at.config.StopTradingTime)
+			log.Printf("🛑 风险控制触发: 回撤%.2f%% 超过限制%.0f%%, 暂停交易%.0f分钟",
+				drawdownPct, at.config.MaxDrawdown, at.config.StopTradingTime.Minutes())
+			record.Success = false
+			record.ErrorMessage = fmt.Sprintf("回撤%.2f%% 超限，暂停交易", drawdownPct)
+			at.decisionLogger.LogDecision(record)
+			return nil
+		}
+	}
 
 	// 4. 调用AI获取完整决策
 	log.Println("🤖 正在请求AI分析并决策...")
@@ -447,8 +497,12 @@ func (at *AutoTrader) buildTradingContext() (*decision.Context, error) {
 		posKey := symbol + "_" + side
 		currentPositionKeys[posKey] = true
 		if _, exists := at.positionFirstSeenTime[posKey]; !exists {
-			// 新持仓，记录当前时间
-			at.positionFirstSeenTime[posKey] = time.Now().UnixMilli()
+			// ⚠️ 检测到"新"持仓（可能是系统重启后的现有持仓）
+			// 使用保守估计：假设已持仓60分钟（避免将旧持仓误判为"0分钟新持仓"）
+			// 这样AI不会错误地应用"<30分钟必须HOLD"规则
+			estimatedOpenTime := time.Now().Add(-60 * time.Minute).UnixMilli()
+			at.positionFirstSeenTime[posKey] = estimatedOpenTime
+			log.Printf("⚠️  [%s %s] 首次检测到此持仓，估算开仓时间为60分钟前（可能是系统重启）", symbol, side)
 		}
 		updateTime := at.positionFirstSeenTime[posKey]
 
@@ -566,15 +620,88 @@ func (at *AutoTrader) executeDecisionWithRecord(decision *decision.Decision, act
 func (at *AutoTrader) executeOpenLongWithRecord(decision *decision.Decision, actionRecord *logger.DecisionAction) error {
 	log.Printf("  📈 开多仓: %s", decision.Symbol)
 
-	// ⚠️ 关键：检查是否已有同币种同方向持仓，如果有则拒绝开仓（防止仓位叠加超限）
+	// ⚠️ 先获取当前持仓信息（用于硬约束检查和防止仓位叠加）
 	positions, err := at.trader.GetPositions()
-	if err == nil {
-		for _, pos := range positions {
-			if pos["symbol"] == decision.Symbol && pos["side"] == "long" {
-				return fmt.Errorf("❌ %s 已有多仓，拒绝开仓以防止仓位叠加超限。如需换仓，请先给出 close_long 决策", decision.Symbol)
-			}
+	if err != nil {
+		return fmt.Errorf("获取持仓失败: %w", err)
+	}
+
+	// 🛡️ 硬约束检查（冷却期、日交易上限、小时上限、最大持仓数量）
+	if err := at.constraints.CanOpenPosition(decision.Symbol, len(positions)); err != nil {
+		log.Printf("  ⚠️  硬约束拦截: %v", err)
+		return fmt.Errorf("硬约束拦截: %w", err)
+	}
+
+	// ⚠️ 关键：检查是否已有同币种同方向持仓，如果有则拒绝开仓（防止仓位叠加超限）
+	for _, pos := range positions {
+		if pos["symbol"] == decision.Symbol && pos["side"] == "long" {
+			return fmt.Errorf("❌ %s 已有多仓，拒绝开仓以防止仓位叠加超限。如需换仓，请先给出 close_long 决策", decision.Symbol)
 		}
 	}
+
+	// ✅ 修复: 检查可用保证金是否充足 + 总保证金使用率
+	balance, err := at.trader.GetBalance()
+	if err != nil {
+		return fmt.Errorf("获取账户余额失败: %w", err)
+	}
+	availableBalance := 0.0
+	totalEquity := 0.0
+	if avail, ok := balance["availableBalance"].(float64); ok {
+		availableBalance = avail
+	}
+	if equity, ok := balance["totalWalletBalance"].(float64); ok {
+		totalEquity = equity
+	}
+
+	// 计算当前总已用保证金（所有持仓的保证金之和）
+	totalMarginUsed := 0.0
+	for _, pos := range positions {
+		// 获取持仓信息
+		positionAmt := 0.0
+		markPrice := 0.0
+		leverage := 1
+
+		if amt, ok := pos["positionAmt"].(float64); ok {
+			positionAmt = amt
+			if positionAmt < 0 {
+				positionAmt = -positionAmt // 空仓取绝对值
+			}
+		}
+		if price, ok := pos["markPrice"].(float64); ok {
+			markPrice = price
+		}
+		if lev, ok := pos["leverage"].(float64); ok {
+			leverage = int(lev)
+		}
+
+		// 保证金 = (持仓价值) / 杠杆
+		if leverage > 0 && markPrice > 0 {
+			positionValue := positionAmt * markPrice
+			marginForThisPosition := positionValue / float64(leverage)
+			totalMarginUsed += marginForThisPosition
+		}
+	}
+
+	// 计算所需保证金 = 仓位价值 / 杠杆
+	requiredMargin := decision.PositionSizeUSD / float64(decision.Leverage)
+
+	// 🚨 关键检查：总保证金使用率不能超过90%（硬约束）
+	newTotalMarginUsed := totalMarginUsed + requiredMargin
+	marginUtilizationRate := 0.0
+	if totalEquity > 0 {
+		marginUtilizationRate = (newTotalMarginUsed / totalEquity) * 100
+	}
+
+	if marginUtilizationRate > 90.0 {
+		return fmt.Errorf("❌ 总保证金使用率将超过90%%限制: 当前%.2f%% + 新仓位%.2f USDT = %.2f%% (账户净值:%.2f USDT)",
+			(totalMarginUsed/totalEquity)*100, requiredMargin, marginUtilizationRate, totalEquity)
+	}
+
+	// 检查可用保证金
+	if requiredMargin > availableBalance {
+		return fmt.Errorf("❌ 可用保证金不足: 需要%.2f USDT, 可用%.2f USDT", requiredMargin, availableBalance)
+	}
+	log.Printf("  💰 保证金检查通过: 需要%.2f USDT, 可用%.2f USDT, 总使用率%.1f%%", requiredMargin, availableBalance, marginUtilizationRate)
 
 	// 获取当前价格
 	marketData, err := market.Get(decision.Symbol)
@@ -600,6 +727,9 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *decision.Decision, act
 
 	log.Printf("  ✓ 开仓成功，订单ID: %v, 数量: %.4f", order["orderId"], quantity)
 
+	// 🛡️ 记录开仓到硬约束管理器
+	at.constraints.RecordOpenPosition(decision.Symbol, "long")
+
 	// 记录开仓时间
 	posKey := decision.Symbol + "_long"
 	at.positionFirstSeenTime[posKey] = time.Now().UnixMilli()
@@ -619,15 +749,88 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *decision.Decision, act
 func (at *AutoTrader) executeOpenShortWithRecord(decision *decision.Decision, actionRecord *logger.DecisionAction) error {
 	log.Printf("  📉 开空仓: %s", decision.Symbol)
 
-	// ⚠️ 关键：检查是否已有同币种同方向持仓，如果有则拒绝开仓（防止仓位叠加超限）
+	// ⚠️ 先获取当前持仓信息（用于硬约束检查和防止仓位叠加）
 	positions, err := at.trader.GetPositions()
-	if err == nil {
-		for _, pos := range positions {
-			if pos["symbol"] == decision.Symbol && pos["side"] == "short" {
-				return fmt.Errorf("❌ %s 已有空仓，拒绝开仓以防止仓位叠加超限。如需换仓，请先给出 close_short 决策", decision.Symbol)
-			}
+	if err != nil {
+		return fmt.Errorf("获取持仓失败: %w", err)
+	}
+
+	// 🛡️ 硬约束检查（冷却期、日交易上限、小时上限、最大持仓数量）
+	if err := at.constraints.CanOpenPosition(decision.Symbol, len(positions)); err != nil {
+		log.Printf("  ⚠️  硬约束拦截: %v", err)
+		return fmt.Errorf("硬约束拦截: %w", err)
+	}
+
+	// ⚠️ 关键：检查是否已有同币种同方向持仓，如果有则拒绝开仓（防止仓位叠加超限）
+	for _, pos := range positions {
+		if pos["symbol"] == decision.Symbol && pos["side"] == "short" {
+			return fmt.Errorf("❌ %s 已有空仓，拒绝开仓以防止仓位叠加超限。如需换仓，请先给出 close_short 决策", decision.Symbol)
 		}
 	}
+
+	// ✅ 修复: 检查可用保证金是否充足 + 总保证金使用率
+	balance, err := at.trader.GetBalance()
+	if err != nil {
+		return fmt.Errorf("获取账户余额失败: %w", err)
+	}
+	availableBalance := 0.0
+	totalEquity := 0.0
+	if avail, ok := balance["availableBalance"].(float64); ok {
+		availableBalance = avail
+	}
+	if equity, ok := balance["totalWalletBalance"].(float64); ok {
+		totalEquity = equity
+	}
+
+	// 计算当前总已用保证金（所有持仓的保证金之和）
+	totalMarginUsed := 0.0
+	for _, pos := range positions {
+		// 获取持仓信息
+		positionAmt := 0.0
+		markPrice := 0.0
+		leverage := 1
+
+		if amt, ok := pos["positionAmt"].(float64); ok {
+			positionAmt = amt
+			if positionAmt < 0 {
+				positionAmt = -positionAmt // 空仓取绝对值
+			}
+		}
+		if price, ok := pos["markPrice"].(float64); ok {
+			markPrice = price
+		}
+		if lev, ok := pos["leverage"].(float64); ok {
+			leverage = int(lev)
+		}
+
+		// 保证金 = (持仓价值) / 杠杆
+		if leverage > 0 && markPrice > 0 {
+			positionValue := positionAmt * markPrice
+			marginForThisPosition := positionValue / float64(leverage)
+			totalMarginUsed += marginForThisPosition
+		}
+	}
+
+	// 计算所需保证金 = 仓位价值 / 杠杆
+	requiredMargin := decision.PositionSizeUSD / float64(decision.Leverage)
+
+	// 🚨 关键检查：总保证金使用率不能超过90%（硬约束）
+	newTotalMarginUsed := totalMarginUsed + requiredMargin
+	marginUtilizationRate := 0.0
+	if totalEquity > 0 {
+		marginUtilizationRate = (newTotalMarginUsed / totalEquity) * 100
+	}
+
+	if marginUtilizationRate > 90.0 {
+		return fmt.Errorf("❌ 总保证金使用率将超过90%%限制: 当前%.2f%% + 新仓位%.2f USDT = %.2f%% (账户净值:%.2f USDT)",
+			(totalMarginUsed/totalEquity)*100, requiredMargin, marginUtilizationRate, totalEquity)
+	}
+
+	// 检查可用保证金
+	if requiredMargin > availableBalance {
+		return fmt.Errorf("❌ 可用保证金不足: 需要%.2f USDT, 可用%.2f USDT", requiredMargin, availableBalance)
+	}
+	log.Printf("  💰 保证金检查通过: 需要%.2f USDT, 可用%.2f USDT, 总使用率%.1f%%", requiredMargin, availableBalance, marginUtilizationRate)
 
 	// 获取当前价格
 	marketData, err := market.Get(decision.Symbol)
@@ -652,6 +855,9 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *decision.Decision, ac
 	}
 
 	log.Printf("  ✓ 开仓成功，订单ID: %v, 数量: %.4f", order["orderId"], quantity)
+
+	// 🛡️ 记录开仓到硬约束管理器
+	at.constraints.RecordOpenPosition(decision.Symbol, "short")
 
 	// 记录开仓时间
 	posKey := decision.Symbol + "_short"
@@ -690,7 +896,17 @@ func (at *AutoTrader) executeCloseLongWithRecord(decision *decision.Decision, ac
 		actionRecord.OrderID = orderID
 	}
 
+	// ✅ 修复: 更新日内盈亏
+	if realizedPnL, ok := order["realized_pnl"].(float64); ok {
+		at.dailyPnL += realizedPnL
+		log.Printf("  💰 平仓盈亏: %+.2f USDT | 日内累计: %+.2f USDT", realizedPnL, at.dailyPnL)
+	}
+
 	log.Printf("  ✓ 平仓成功")
+
+	// 🛡️ 记录平仓到硬约束管理器（设置冷却期）
+	at.constraints.RecordClosePosition(decision.Symbol, "long")
+
 	return nil
 }
 
@@ -716,7 +932,17 @@ func (at *AutoTrader) executeCloseShortWithRecord(decision *decision.Decision, a
 		actionRecord.OrderID = orderID
 	}
 
+	// ✅ 修复: 更新日内盈亏
+	if realizedPnL, ok := order["realized_pnl"].(float64); ok {
+		at.dailyPnL += realizedPnL
+		log.Printf("  💰 平仓盈亏: %+.2f USDT | 日内累计: %+.2f USDT", realizedPnL, at.dailyPnL)
+	}
+
 	log.Printf("  ✓ 平仓成功")
+
+	// 🛡️ 记录平仓到硬约束管理器（设置冷却期）
+	at.constraints.RecordClosePosition(decision.Symbol, "short")
+
 	return nil
 }
 

@@ -18,8 +18,9 @@ type TraderConfig struct {
 	Exchange string `json:"exchange"` // "binance" or "hyperliquid"
 
 	// 币安配置
-	BinanceAPIKey    string `json:"binance_api_key,omitempty"`
-	BinanceSecretKey string `json:"binance_secret_key,omitempty"`
+	BinanceAPIKey       string `json:"binance_api_key,omitempty"`
+	BinanceSecretKey    string `json:"binance_secret_key,omitempty"`
+	BinanceTestnet      bool   `json:"binance_testnet,omitempty"` // 是否使用币安测试网
 
 	// Hyperliquid配置
 	HyperliquidPrivateKey string `json:"hyperliquid_private_key,omitempty"`
@@ -110,67 +111,67 @@ func (c *Config) Validate() error {
 	}
 
 	traderIDs := make(map[string]bool)
-	for i, trader := range c.Traders {
-		if trader.ID == "" {
+	for i := range c.Traders {
+		if c.Traders[i].ID == "" {
 			return fmt.Errorf("trader[%d]: ID不能为空", i)
 		}
-		if traderIDs[trader.ID] {
-			return fmt.Errorf("trader[%d]: ID '%s' 重复", i, trader.ID)
+		if traderIDs[c.Traders[i].ID] {
+			return fmt.Errorf("trader[%d]: ID '%s' 重复", i, c.Traders[i].ID)
 		}
-		traderIDs[trader.ID] = true
+		traderIDs[c.Traders[i].ID] = true
 
-		if trader.Name == "" {
+		if c.Traders[i].Name == "" {
 			return fmt.Errorf("trader[%d]: Name不能为空", i)
 		}
-		if trader.AIModel != "qwen" && trader.AIModel != "deepseek" && trader.AIModel != "custom" {
+		if c.Traders[i].AIModel != "qwen" && c.Traders[i].AIModel != "deepseek" && c.Traders[i].AIModel != "custom" {
 			return fmt.Errorf("trader[%d]: ai_model必须是 'qwen', 'deepseek' 或 'custom'", i)
 		}
 
 		// 验证交易平台配置
-		if trader.Exchange == "" {
-			trader.Exchange = "binance" // 默认使用币安
+		if c.Traders[i].Exchange == "" {
+			c.Traders[i].Exchange = "binance" // 默认使用币安
 		}
-		if trader.Exchange != "binance" && trader.Exchange != "hyperliquid" && trader.Exchange != "aster" {
-			return fmt.Errorf("trader[%d]: exchange必须是 'binance', 'hyperliquid' 或 'aster'", i)
+		if c.Traders[i].Exchange != "binance" && c.Traders[i].Exchange != "hyperliquid" && c.Traders[i].Exchange != "aster" && c.Traders[i].Exchange != "mock" {
+			return fmt.Errorf("trader[%d]: exchange必须是 'binance', 'hyperliquid', 'aster' 或 'mock'", i)
 		}
 
 		// 根据平台验证对应的密钥
-		if trader.Exchange == "binance" {
-			if trader.BinanceAPIKey == "" || trader.BinanceSecretKey == "" {
+		if c.Traders[i].Exchange == "binance" {
+			if c.Traders[i].BinanceAPIKey == "" || c.Traders[i].BinanceSecretKey == "" {
 				return fmt.Errorf("trader[%d]: 使用币安时必须配置binance_api_key和binance_secret_key", i)
 			}
-		} else if trader.Exchange == "hyperliquid" {
-			if trader.HyperliquidPrivateKey == "" {
+		} else if c.Traders[i].Exchange == "hyperliquid" {
+			if c.Traders[i].HyperliquidPrivateKey == "" {
 				return fmt.Errorf("trader[%d]: 使用Hyperliquid时必须配置hyperliquid_private_key", i)
 			}
-		} else if trader.Exchange == "aster" {
-			if trader.AsterUser == "" || trader.AsterSigner == "" || trader.AsterPrivateKey == "" {
+		} else if c.Traders[i].Exchange == "aster" {
+			if c.Traders[i].AsterUser == "" || c.Traders[i].AsterSigner == "" || c.Traders[i].AsterPrivateKey == "" {
 				return fmt.Errorf("trader[%d]: 使用Aster时必须配置aster_user, aster_signer和aster_private_key", i)
 			}
 		}
 
-		if trader.AIModel == "qwen" && trader.QwenKey == "" {
+		if c.Traders[i].AIModel == "qwen" && c.Traders[i].QwenKey == "" {
 			return fmt.Errorf("trader[%d]: 使用Qwen时必须配置qwen_key", i)
 		}
-		if trader.AIModel == "deepseek" && trader.DeepSeekKey == "" {
+		if c.Traders[i].AIModel == "deepseek" && c.Traders[i].DeepSeekKey == "" {
 			return fmt.Errorf("trader[%d]: 使用DeepSeek时必须配置deepseek_key", i)
 		}
-		if trader.AIModel == "custom" {
-			if trader.CustomAPIURL == "" {
+		if c.Traders[i].AIModel == "custom" {
+			if c.Traders[i].CustomAPIURL == "" {
 				return fmt.Errorf("trader[%d]: 使用自定义API时必须配置custom_api_url", i)
 			}
-			if trader.CustomAPIKey == "" {
+			if c.Traders[i].CustomAPIKey == "" {
 				return fmt.Errorf("trader[%d]: 使用自定义API时必须配置custom_api_key", i)
 			}
-			if trader.CustomModelName == "" {
+			if c.Traders[i].CustomModelName == "" {
 				return fmt.Errorf("trader[%d]: 使用自定义API时必须配置custom_model_name", i)
 			}
 		}
-		if trader.InitialBalance <= 0 {
+		if c.Traders[i].InitialBalance <= 0 {
 			return fmt.Errorf("trader[%d]: initial_balance必须大于0", i)
 		}
-		if trader.ScanIntervalMinutes <= 0 {
-			trader.ScanIntervalMinutes = 3 // 默认3分钟
+		if c.Traders[i].ScanIntervalMinutes <= 0 {
+			c.Traders[i].ScanIntervalMinutes = 3 // 默认3分钟
 		}
 	}
 
