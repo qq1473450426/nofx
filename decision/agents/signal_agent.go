@@ -3,6 +3,7 @@ package agents
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"nofx/market"
 	"nofx/mcp"
@@ -325,16 +326,29 @@ func (a *SignalAgent) auditSignals(marketData *market.Data, regime *RegimeResult
 		positionConfirmed := checkPullbackPosition(marketData)
 		audit.pullbackConfirmed = rsiConfirmed && positionConfirmed
 
+		// 🔍 V4.0: 详细日志输出Pullback验证结果
+		log.Printf("🔍 [V4.0 Pullback检查] %s: RSI超买回落=%v, 位置确认=%v, 综合=%v",
+			marketData.Symbol, rsiConfirmed, positionConfirmed, audit.pullbackConfirmed)
+
 		if audit.pullbackConfirmed {
 			// 动量与位置两项同时满足才计入 (视为维度2+维度3)
 			audit.count += 2
 
-			if checkPullbackVolume(marketData) {
+			volumeOK := checkPullbackVolume(marketData)
+			fundingOK := checkFunding(direction, marketData)
+
+			if volumeOK {
 				audit.count++
 			}
-			if checkFunding(direction, marketData) {
+			if fundingOK {
 				audit.count++
 			}
+
+			log.Printf("✅ [V4.0 Pullback通过] %s: 维度2+3已满足, 成交量=%v, 资金费率=%v, 总计%d个维度",
+				marketData.Symbol, volumeOK, fundingOK, audit.count)
+		} else {
+			log.Printf("❌ [V4.0 Pullback拒绝] %s: 未同时满足RSI和位置条件，拒绝开仓（防止抢跑）",
+				marketData.Symbol)
 		}
 	} else {
 		if checkMomentum(direction, marketData) {
@@ -427,6 +441,8 @@ func checkRSIOverboughtReturn(data *market.Data) bool {
 
 	current := data.CurrentRSI7
 	if current >= 65 {
+		log.Printf("    ❌ [RSI检查失败] %s: 当前RSI7=%.2f >= 65，尚未回落",
+			data.Symbol, current)
 		return false
 	}
 
@@ -452,16 +468,26 @@ func checkRSIOverboughtReturn(data *market.Data) bool {
 		}
 	}
 
+	log.Printf("    [RSI超买检查] %s: 当前RSI7=%.2f, 最近%d根最高RSI=%.2f",
+		data.Symbol, current, lookback, maxRSI)
+
 	// 必须在近 40 根（≈2 小时）内曾经显著超买
 	if maxRSI < 72 {
+		log.Printf("    ❌ [RSI检查失败] %s: 最高RSI=%.2f < 72，未曾显著超买",
+			data.Symbol, maxRSI)
 		return false
 	}
 
 	// 超买点必须距离当前不超过约 60 分钟
-	if len(series)-1-maxIdx > 20 {
+	distance := len(series) - 1 - maxIdx
+	if distance > 20 {
+		log.Printf("    ❌ [RSI检查失败] %s: 超买点距今%d根(>20根/60分钟)，太远了",
+			data.Symbol, distance)
 		return false
 	}
 
+	log.Printf("    ✅ [RSI检查通过] %s: 曾超买至%.2f(>=72), %d根前, 现已回落至%.2f(<65)",
+		data.Symbol, maxRSI, distance, current)
 	return true
 }
 
@@ -478,22 +504,36 @@ func checkPullbackPosition(data *market.Data) bool {
 	price := data.CurrentPrice
 
 	// ✅ 条件1: 价格必须已经重新跌回 1h EMA20 下方（V4.0）
-	if price > currentEMA20*(1.0-EMA20TolerancePct) {
+	condition1 := price <= currentEMA20*(1.0-EMA20TolerancePct)
+	log.Printf("  [条件1] %s: 价格%.2f vs 1h_EMA20=%.2f (容差%.1f%%) → 跌回EMA20下方=%v",
+		data.Symbol, price, currentEMA20, EMA20TolerancePct*100, condition1)
+
+	if !condition1 {
+		log.Printf("  ❌ [条件1失败] %s: 价格还在反弹中，尚未确认", data.Symbol)
 		return false // 还在反弹中，尚未确认
 	}
 
 	// ✅ 条件2: 需要至少两根 1h 确认K（≈ 60 分钟）的收盘价低于 1h EMA20
 	// 并确认先前曾站上 EMA20（确认这是"反弹失败"而非"一路下跌"）
-	if !confirmedBelowOneHourEMA(data, currentEMA20) {
+	condition2 := confirmedBelowOneHourEMA(data, currentEMA20)
+	log.Printf("  [条件2] %s: 1h K线确认跌破=%v", data.Symbol, condition2)
+
+	if !condition2 {
+		log.Printf("  ❌ [条件2失败] %s: 可能是假跌破或未曾反弹", data.Symbol)
 		return false // 可能是假跌破
 	}
 
 	// ✅ 条件3: 必须曾经触及 4h EMA20 ~ EMA50 阻力带（V4.0耐心逻辑）
-	if !touchedFourHourBand(data) {
+	condition3 := touchedFourHourBand(data)
+	log.Printf("  [条件3] %s: 曾触及4h阻力区=%v", data.Symbol, condition3)
+
+	if !condition3 {
+		log.Printf("  ❌ [条件3失败] %s: 价格还在半路上，抢跑了！", data.Symbol)
 		return false // 价格还在半路上，抢跑了
 	}
 
 	// 🎯 同时满足三个条件：反弹到位 + 确认跌回 + 持续在下方
+	log.Printf("  ✅ [位置确认通过] %s: 三个条件全部满足（反弹到位+确认跌回+持续下方）", data.Symbol)
 	return true
 }
 
@@ -518,7 +558,12 @@ func confirmedBelowOneHourEMA(data *market.Data, ema20 float64) bool {
 	required := minInt(len(prices), 20) // 约 60 分钟
 	lowerThreshold := ema20 * (1.0 - EMA20TolerancePct)
 	upperThreshold := ema20 * (1.0 + EMA20TolerancePct/2)
+
+	log.Printf("    [1h确认检查] %s: EMA20=%.2f, 下限=%.2f, 上限=%.2f, 检查最近%d根K线",
+		data.Symbol, ema20, lowerThreshold, upperThreshold, required)
+
 	aboveSeen := false
+	belowCount := 0
 	for i := len(prices) - required; i < len(prices); i++ {
 		if i < 0 {
 			continue
@@ -526,12 +571,19 @@ func confirmedBelowOneHourEMA(data *market.Data, ema20 float64) bool {
 		if prices[i] >= upperThreshold {
 			aboveSeen = true
 		}
+		if prices[i] <= lowerThreshold {
+			belowCount++
+		}
 		if prices[i] > lowerThreshold {
+			log.Printf("    ❌ [1h确认失败] %s: 第%d根K线价格%.2f > 下限%.2f，未持续在下方",
+				data.Symbol, i-(len(prices)-required), prices[i], lowerThreshold)
 			return false
 		}
 	}
 
 	if !aboveSeen {
+		log.Printf("    [回溯检查] %s: 最近%d根未见反弹，向前回溯60根",
+			data.Symbol, required)
 		lookback := minInt(len(prices), 60)
 		for i := len(prices) - required - lookback; i < len(prices)-required; i++ {
 			if i < 0 {
@@ -539,9 +591,19 @@ func confirmedBelowOneHourEMA(data *market.Data, ema20 float64) bool {
 			}
 			if prices[i] >= upperThreshold {
 				aboveSeen = true
+				log.Printf("    ✅ [回溯发现反弹] %s: 第%d根K线价格%.2f >= 上限%.2f",
+					data.Symbol, i, prices[i], upperThreshold)
 				break
 			}
 		}
+	}
+
+	if aboveSeen {
+		log.Printf("    ✅ [1h确认通过] %s: 曾反弹至EMA20上方，现已持续%d根K线在下限下方",
+			data.Symbol, belowCount)
+	} else {
+		log.Printf("    ❌ [1h确认失败] %s: 未曾反弹至EMA20上方，可能一路下跌",
+			data.Symbol)
 	}
 
 	return aboveSeen
@@ -567,6 +629,9 @@ func touchedFourHourBand(data *market.Data) bool {
 	// 使用0.5*ATR作为缓冲区（比之前的2%更合理）
 	resistanceFloor := bandLow - (0.5 * atr)
 
+	log.Printf("    [4h阻力区] %s: EMA20=%.2f, EMA50=%.2f, ATR=%.2f → 阻力下限=%.2f (bandLow-0.5*ATR)",
+		data.Symbol, ema4h20, ema4h50, atr, resistanceFloor)
+
 	prices := data.IntradaySeries.MidPrices
 	if len(prices) == 0 {
 		return false
@@ -586,12 +651,19 @@ func touchedFourHourBand(data *market.Data) bool {
 		}
 	}
 
+	log.Printf("    [4h最高价] %s: 最近4h最高价=%.2f, 需触及阻力下限=%.2f → 满足=%v",
+		data.Symbol, maxPrice, resistanceFloor, maxPrice >= resistanceFloor)
+
 	// V4.0核心逻辑：最高价必须至少触及阻力区下限（耐心等待）
 	if maxPrice < resistanceFloor {
+		log.Printf("    ❌ [4h阻力区未触及] %s: 价格还在半路上(%.2f < %.2f)，太早了",
+			data.Symbol, maxPrice, resistanceFloor)
 		return false // 价格还在半路上，太早了
 	}
 
 	// 如果价格进入阻力区内部或突破上限，都算触及
+	log.Printf("    ✅ [4h阻力区已触及] %s: 最高价%.2f >= 阻力下限%.2f，耐心等待完成",
+		data.Symbol, maxPrice, resistanceFloor)
 	return true
 }
 
