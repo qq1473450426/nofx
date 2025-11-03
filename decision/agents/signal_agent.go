@@ -30,26 +30,31 @@ type signalAudit struct {
 
 // SignalAgent 信号检测专家
 type SignalAgent struct {
-	mcpClient *mcp.Client
+	mcpClient    *mcp.Client
+	systemPrompt string // 📉 Token优化：缓存通用规则，避免重复发送
 }
 
 // NewSignalAgent 创建信号检测专家
 func NewSignalAgent(mcpClient *mcp.Client) *SignalAgent {
-	return &SignalAgent{
+	agent := &SignalAgent{
 		mcpClient: mcpClient,
 	}
+	// 📉 Token优化：预构建system prompt（只构建一次）
+	agent.systemPrompt = agent.buildSystemPrompt()
+	return agent
 }
 
 // Detect 检测交易信号（单一币种）
+// 📉 Token优化：使用system prompt + user prompt分离模式
 func (a *SignalAgent) Detect(symbol string, marketData *market.Data, regime *RegimeResult) (*SignalResult, error) {
 	if marketData == nil {
 		return nil, fmt.Errorf("市场数据不完整")
 	}
 
-	prompt := a.buildPrompt(symbol, marketData, regime)
+	userPrompt := a.buildPrompt(symbol, marketData, regime)
 
-	// 调用AI
-	response, err := a.mcpClient.CallWithMessages("", prompt)
+	// 📉 Token优化：使用system prompt（通用规则）+ user prompt（币种数据）
+	response, err := a.mcpClient.CallWithMessages(a.systemPrompt, userPrompt)
 	if err != nil {
 		return nil, fmt.Errorf("调用AI失败: %w", err)
 	}
@@ -93,141 +98,83 @@ func (a *SignalAgent) Detect(symbol string, marketData *market.Data, regime *Reg
 }
 
 // buildPrompt 构建信号检测prompt
-func (a *SignalAgent) buildPrompt(symbol string, marketData *market.Data, regime *RegimeResult) string {
+// buildSystemPrompt 构建System Prompt（通用规则，只构建一次）
+// 📉 Token优化：将所有通用规则移到system prompt，避免每个币种重复发送
+func (a *SignalAgent) buildSystemPrompt() string {
 	var sb strings.Builder
 
 	sb.WriteString("你是交易信号检测专家。分析币种的多维度信号共振。\n\n")
 
-	sb.WriteString("# 输入数据\n\n")
-	sb.WriteString(fmt.Sprintf("**币种**: %s\n", symbol))
-	sb.WriteString(fmt.Sprintf("**当前价格**: %.4f\n", marketData.CurrentPrice))
-	sb.WriteString(fmt.Sprintf("**市场体制**: %s (%s)\n", regime.Regime, regime.Strategy))
-	sb.WriteString("\n")
+	sb.WriteString("# 5维度信号检测规则\n\n")
 
-	// 输出完整市场数据
-	sb.WriteString("**技术指标**:\n")
-	sb.WriteString(fmt.Sprintf("- 当前RSI(7): %.2f\n", marketData.CurrentRSI7))
-	sb.WriteString(fmt.Sprintf("- 当前MACD: %.4f\n", marketData.CurrentMACD))
-	sb.WriteString(fmt.Sprintf("- 当前EMA20: %.4f\n", marketData.CurrentEMA20))
-	sb.WriteString("\n")
+	sb.WriteString("**维度1: 体制/趋势匹配**\n")
+	sb.WriteString("做多: 体制=(A1)上升趋势 OR 体制=(B)震荡下轨\n")
+	sb.WriteString("做空: 体制=(A2)下降趋势 OR 体制=(B)震荡上轨\n\n")
+
+	sb.WriteString("**维度2: 动量指标**\n")
+	sb.WriteString("做多: (4h MACD > 0 且上升) OR (1h RSI曾跌破30并回升至>35)\n")
+	sb.WriteString("做空: (4h MACD < 0) 且 (1h RSI曾超买>70，并已回落到<65)\n\n")
+
+	sb.WriteString("**维度3: 位置/技术形态**\n")
+	sb.WriteString("做多(A1/B): 价格回踩 1h EMA20 支撑企稳\n")
+	sb.WriteString("做空(A2趋势): 必须同时满足：1) 最近反弹的最高价触及 [4h EMA20 ~ 4h EMA50] 阻力区；2) 至少连续2根 1h 收盘价重新跌回 1h EMA20 下方\n")
+	sb.WriteString("做空(B震荡): 价格触及震荡上轨并出现反转信号\n\n")
+
+	sb.WriteString("**维度4: 资金/成交量**\n")
+	sb.WriteString("A2趋势做空: 只有在\"反弹确认结束\"后，缩量反弹(<-50%) 或 成交量放大(>+20%) 才算有效\n")
+	sb.WriteString("A1趋势做多: 成交量放大(>+20%) 或 缩量回调(<-50%)\n")
+	sb.WriteString("震荡市(B): 仅接受成交量放大(>+20%)\n\n")
+
+	sb.WriteString("**维度5: 情绪/持仓**\n")
+	sb.WriteString("做多: 资金费率<0\n")
+	sb.WriteString("做空: 资金费率>0.01%\n\n")
+
+	sb.WriteString("# 判断规则\n")
+	sb.WriteString("1. 逐个检查5个维度，在reasoning中写明每个维度的数值和判断\n")
+	sb.WriteString("2. 只有真正满足的维度才能加入signal_list\n")
+	sb.WriteString("3. ≥3个维度同时成立 → valid=true；<3个维度 → valid=false, direction=\"none\"\n\n")
+
+	sb.WriteString("# 输出格式要求\n")
+	sb.WriteString("必须输出纯JSON，格式：\n")
+	sb.WriteString("{\"symbol\":\"XXX\", \"direction\":\"short/long/none\", \"signal_list\":[...], \"score\":0, \"valid\":true/false, ")
+	sb.WriteString("\"reasoning\":\"维度1(...) | 维度2(...) | 维度3(...) | 维度4(...) | 维度5(...) | 共X个维度满足\"}\n\n")
+
+	sb.WriteString("**特别要求（A2做空）**:\n")
+	sb.WriteString("- reasoning中维度3必须写: `维度3(位置): 条件1(最高触及=Y, 4h_EMA20=U, 4h_EMA50=V) → [满足/不满足]; 条件2(当前收盘=W, 1h_EMA20=Z, 连续确认=2根) → [满足/不满足]; 综合 → [满足/不满足]`\n")
+	sb.WriteString("- ⚠️ 禁止写成简化格式如\"价格 vs EMA20\"，会被Go代码拒绝！\n")
+
+	return sb.String()
+}
+
+// buildPrompt 构建User Prompt（币种特定数据，精简版本）
+// 📉 Token优化：只包含币种数据，不再重复发送规则
+func (a *SignalAgent) buildPrompt(symbol string, marketData *market.Data, regime *RegimeResult) string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("# 币种: %s\n\n", symbol))
+	sb.WriteString(fmt.Sprintf("价格: %.4f | RSI(7): %.2f | MACD: %.4f | EMA20(1h): %.4f\n",
+		marketData.CurrentPrice, marketData.CurrentRSI7, marketData.CurrentMACD, marketData.CurrentEMA20))
 
 	if marketData.LongerTermContext != nil {
-		sb.WriteString("**4h数据**:\n")
-		sb.WriteString(fmt.Sprintf("- 4h EMA20: %.4f\n", marketData.LongerTermContext.EMA20))
-		sb.WriteString(fmt.Sprintf("- 4h EMA50: %.4f\n", marketData.LongerTermContext.EMA50))
-		sb.WriteString(fmt.Sprintf("- 4h EMA200: %.4f\n", marketData.LongerTermContext.EMA200))
-		sb.WriteString(fmt.Sprintf("- 4h ATR14: %.4f\n", marketData.LongerTermContext.ATR14))
-		sb.WriteString(fmt.Sprintf("- 4h ATR3: %.4f\n", marketData.LongerTermContext.ATR3))
-		sb.WriteString(fmt.Sprintf("- 价格变化1h: %+.2f%%\n", marketData.PriceChange1h))
-		sb.WriteString(fmt.Sprintf("- 价格变化4h: %+.2f%%\n", marketData.PriceChange4h))
+		sb.WriteString(fmt.Sprintf("4h: EMA20=%.4f EMA50=%.4f EMA200=%.4f | ATR14=%.4f\n",
+			marketData.LongerTermContext.EMA20, marketData.LongerTermContext.EMA50,
+			marketData.LongerTermContext.EMA200, marketData.LongerTermContext.ATR14))
+		sb.WriteString(fmt.Sprintf("价格变化: 1h=%+.2f%% 4h=%+.2f%%\n",
+			marketData.PriceChange1h, marketData.PriceChange4h))
 
-		// Volume comparison
-		volumeChangeText := ""
 		if marketData.LongerTermContext.AverageVolume > 0 {
 			volumeChange := ((marketData.LongerTermContext.CurrentVolume - marketData.LongerTermContext.AverageVolume) / marketData.LongerTermContext.AverageVolume) * 100
-			volumeChangeText = fmt.Sprintf("- 成交量变化: %+.2f%%\n", volumeChange)
+			sb.WriteString(fmt.Sprintf("成交量变化: %+.2f%%\n", volumeChange))
 		}
-		sb.WriteString(volumeChangeText)
-		sb.WriteString("\n")
 	}
 
 	if marketData.OpenInterest != nil {
-		sb.WriteString("**持仓量 & 资金费率**:\n")
-		sb.WriteString(fmt.Sprintf("- 当前OI: %.0f\n", marketData.OpenInterest.Latest))
-		sb.WriteString(fmt.Sprintf("- 资金费率: %.4f%%\n", marketData.FundingRate*100))
-		sb.WriteString("\n")
+		sb.WriteString(fmt.Sprintf("OI: %.0f | 资金费率: %.4f%%\n",
+			marketData.OpenInterest.Latest, marketData.FundingRate*100))
 	}
 
-	sb.WriteString("# 任务：5维度信号检测\n\n")
-
-	sb.WriteString("⚠️ **强制要求**：对于每个维度，你必须在reasoning中写明**具体数值**和**判断逻辑**！\n")
-	sb.WriteString("**禁止作弊**：不要在信号列表中包含未满足的维度！Go代码会验证你的逻辑！\n\n")
-
-	sb.WriteString("**检测以下5个独立维度的信号**：\n\n")
-
-	sb.WriteString("**维度1: 体制/趋势匹配**\n")
-	sb.WriteString("```\n")
-	sb.WriteString("做多: 体制=(A1)上升趋势 OR 体制=(B)震荡下轨\n")
-	sb.WriteString("做空: 体制=(A2)下降趋势 OR 体制=(B)震荡上轨\n")
-	sb.WriteString("```\n")
-	sb.WriteString("**要求**: reasoning中必须写 `维度1(体制): %s → 满足/不满足`\n\n")
-
-	sb.WriteString("**维度2: 动量指标**\n")
-	sb.WriteString("```\n")
-	sb.WriteString("做多: (4h MACD > 0 且上升) OR (1h RSI曾跌破30并回升至>35)\n")
-	sb.WriteString("做空: (4h MACD < 0) 且 (1h RSI曾超买>70，并已回落到<65)\n")
-	sb.WriteString("```\n")
-	sb.WriteString("**要求**: reasoning中必须写 `维度2(动量): MACD=X.XX 或 RSI=X.XX → 满足/不满足`\n\n")
-
-	sb.WriteString("**维度3: 位置/技术形态**\n")
-	sb.WriteString("```\n")
-	sb.WriteString("做多(A1/B): 价格回踩 1h EMA20 支撑企稳，或突破关键阻力并站稳\n")
-	sb.WriteString("做空(A2趋势): 必须满足两个条件：\n")
-	sb.WriteString("  条件1: 价格曾反弹至 [4h EMA20 ~ 4h EMA50] 阻力区（至少触及4h EMA20附近）\n")
-	sb.WriteString("  条件2: 价格已重新跌回 1h EMA20 下方（收盘价确认，至少2根1h K线）\n")
-	sb.WriteString("  ⚠️ 缺一不可！仅价格低于1h EMA20但未触及4h阻力区 → 不满足（抢跑）\n")
-	sb.WriteString("做空(B震荡): 价格触及震荡上轨并出现反转信号\n")
-	sb.WriteString("```\n")
-	sb.WriteString("**要求**:\n")
-	sb.WriteString("- (A1/B做多): reasoning中必须写 `维度3(位置): 价格[X.XX] vs 1h_EMA20=[X.XX] → 满足/不满足`\n")
-	sb.WriteString("- (A2做空): reasoning中必须写 `维度3(位置): 条件1: 价格[最高触及Y.YY] vs [4h_EMA20=X.XX ~ 4h_EMA50=Z.ZZ] → [满足/不满足]; 条件2: 当前价格[W.WW] vs 1h_EMA20=[V.VV] → [满足/不满足]; 综合 → [满足/不满足]`\n\n")
-
-	sb.WriteString("**维度4: 资金/成交量（最容易作弊的维度！）**\n")
-	sb.WriteString("```\n")
-	sb.WriteString("A2趋势做空: 只有在“反弹确认结束”后，缩量反弹(<-50%) 或 成交量放大(>+20%) 才算有效\n")
-	sb.WriteString("A1趋势做多: 成交量放大(>+20%) 或 缩量回调(<-50%)\n")
-	sb.WriteString("震荡市(B): 仅接受成交量放大(>+20%)\n")
-	sb.WriteString("```\n")
-	sb.WriteString("⚠️ **严格要求**：\n")
-	sb.WriteString("- 缩量反弹只有在“收盘价确认跌回EMA20下方”之后才可计入维度4\n")
-	sb.WriteString("- 仅出现缩量但价格仍在EMA20上方 → **不满足**\n")
-	sb.WriteString("- 成交量变化+25% → 满足放大条件；-30% → 不满足任何条件\n")
-	sb.WriteString("- reasoning中必须写：\n")
-	sb.WriteString("  - `维度4(成交量): 成交量变化[+X.XX%] > +20% → 满足` 或\n")
-	sb.WriteString("  - `维度4(成交量): 成交量变化[-X.XX%] < -50%，且价格已确认跌回EMA20下方 → 满足` 或\n")
-	sb.WriteString("  - `维度4(成交量): 成交量变化[-30%] 不满足任何条件 → 不满足`\n")
-	sb.WriteString("- **禁止**：价格仍在EMA20上方却声称维度4满足缩量条件！\n\n")
-
-	sb.WriteString("🚨 **A2反弹做空特别提醒**：\n")
-	sb.WriteString("- RSI(1h) 必须先超买>70再回落到<65\n")
-	sb.WriteString("- 收盘价连续2根1h确认跌回1h EMA20下方\n")
-	sb.WriteString("- 缩量反弹只有在上述确认完成后才有效\n")
-	sb.WriteString("- 禁止在价格仍高于EMA20时提前开空\n\n")
-
-	sb.WriteString("**维度5: 情绪/持仓**\n")
-	sb.WriteString("```\n")
-	sb.WriteString("做多: 资金费率<0 (空头主导，做多逆向机会)\n")
-	sb.WriteString("做空: 资金费率>0.01% (多头主导，做空逆向机会)\n")
-	sb.WriteString("```\n")
-	sb.WriteString("**要求**: reasoning中必须写 `维度5(资金费率): 费率=X.XX%% → 满足/不满足`\n\n")
-
-	sb.WriteString("**禁止开仓情况**（必须检查）：\n")
-	sb.WriteString("```\n")
-	sb.WriteString("1. 体制=(C)窄幅盘整 → 禁止开仓\n")
-	sb.WriteString("2. 体制与信号冲突（例如：(A1)上升趋势中使用(B)逆转信号做空）\n")
-	sb.WriteString("3. 指标矛盾（如MACD多头但价格已跌破EMA50）\n")
-	sb.WriteString("```\n\n")
-
-	sb.WriteString("# 判断规则\n\n")
-	sb.WriteString("1. 逐个检查5个维度，在reasoning中写明每个维度的数值和判断\n")
-	sb.WriteString("2. **只有真正满足的维度**才能加入signal_list\n")
-	sb.WriteString("3. **如果≥3个维度同时成立** → valid=true, 输出方向和信号列表\n")
-	sb.WriteString("4. **如果<3个维度** → valid=false, direction=\"none\"\n\n")
-	sb.WriteString("⚠️ 注意：score字段将由Go代码计算，你不需要计算分数\n\n")
-
-	sb.WriteString("# 输出要求\n\n")
-	sb.WriteString("必须输出纯JSON（不要markdown代码块），格式：\n")
-	sb.WriteString("```\n")
-	sb.WriteString("{\n")
-	sb.WriteString("  \"symbol\": \"BNBUSDT\",\n")
-	sb.WriteString("  \"direction\": \"short\",\n")
-	sb.WriteString("  \"signal_list\": [\"体制=(A2)下降趋势\", \"MACD<0且下降\", \"价格反弹EMA20受阻\"],\n")
-	sb.WriteString("  \"score\": 0,\n")
-	sb.WriteString("  \"valid\": true,\n")
-	sb.WriteString("  \"reasoning\": \"维度1(体制): A2下降→满足 | 维度2(动量): MACD=-0.52<0→满足 | 维度3(位置): 价格1093.53 vs EMA20=1095→满足 | 维度4(成交量): 变化[-89.84%]<+20%→不满足 | 维度5(费率): 0.02%>0.01%→满足 | 共4个维度满足\"\n")
-	sb.WriteString("}\n")
-	sb.WriteString("```\n")
-	sb.WriteString("\n⚠️ 重要：score字段填0即可，Go代码会根据信号数量自动计算！\n")
+	sb.WriteString(fmt.Sprintf("\n体制: %s (%s)\n", regime.Regime, regime.Strategy))
+	sb.WriteString("\n请分析以上数据，输出JSON格式的信号检测结果。\n")
 
 	return sb.String()
 }
@@ -349,6 +296,41 @@ func (a *SignalAgent) auditSignals(marketData *market.Data, regime *RegimeResult
 		} else {
 			log.Printf("❌ [V4.0 Pullback拒绝] %s: 未同时满足RSI和位置条件，拒绝开仓（防止抢跑）",
 				marketData.Symbol)
+		}
+	} else if audit.scenario == ScenarioCountertrend {
+		// V5.0 逆势策略（极度保守，仅支持A2做多）
+		if direction == "long" && regime.Regime == "A2" {
+			log.Printf("🔍 [V5.0 Countertrend] %s: 检测A2逆势做多信号", marketData.Symbol)
+
+			// 维度1: 极度超卖 (RSI <= 25)
+			if checkCountertrendOversold(marketData) {
+				audit.count += 2 // 极度超卖算2个维度（这是核心条件）
+				log.Printf("  ✅ 维度1+2: RSI极度超卖 (%.2f <= %.0f)",
+					marketData.CurrentRSI7, CountertrendRSIThreshold)
+			} else {
+				log.Printf("  ❌ 拒绝: RSI=%.2f > %.0f，不够超卖",
+					marketData.CurrentRSI7, CountertrendRSIThreshold)
+			}
+
+			// 维度3: 资金费率转负（空头主导）
+			if checkFunding(direction, marketData) {
+				audit.count++
+				log.Printf("  ✅ 维度3: 资金费率 %.4f%% < 0 (空头主导)",
+					marketData.FundingRate*100)
+			}
+
+			// 维度4: 成交量放大（恐慌抛售）
+			if checkVolumeExpansion(marketData) {
+				audit.count++
+				log.Printf("  ✅ 维度4: 成交量放大 (恐慌抛售)")
+			}
+
+			log.Printf("🔍 [V5.0 Countertrend] %s: 总计%d个维度",
+				marketData.Symbol, audit.count)
+		} else if direction == "short" && regime.Regime == "A1" {
+			// A1逆势做空暂不支持（更危险）
+			log.Printf("🔍 [V5.0 Countertrend] %s: A1逆势做空暂不支持", marketData.Symbol)
+			audit.count = 0 // 保持拒绝
 		}
 	} else {
 		if checkMomentum(direction, marketData) {
@@ -555,34 +537,40 @@ func confirmedBelowOneHourEMA(data *market.Data, ema20 float64) bool {
 		return false
 	}
 
-	required := minInt(len(prices), 20) // 约 60 分钟
-	lowerThreshold := ema20 * (1.0 - EMA20TolerancePct)
-	upperThreshold := ema20 * (1.0 + EMA20TolerancePct/2)
+	required := minInt(len(prices), 20)
+	if required <= 0 {
+		return false
+	}
 
-	log.Printf("    [1h确认检查] %s: EMA20=%.2f, 下限=%.2f, 上限=%.2f, 检查最近%d根K线",
+	baseOvershoot := ema20 * PullbackMinOvershootPct
+	if data.LongerTermContext != nil && data.LongerTermContext.ATR14 > 0 {
+		baseOvershoot = math.Max(baseOvershoot, data.LongerTermContext.ATR14*PullbackMinOvershootATR)
+	}
+
+	upperThreshold := ema20 + baseOvershoot
+	lowerThreshold := ema20 * (1.0 - EMA20TolerancePct)
+
+	log.Printf("    [1h确认检查] %s: EMA20=%.4f, 下限=%.4f, 上限=%.4f, 检查最近%d根K线",
 		data.Symbol, ema20, lowerThreshold, upperThreshold, required)
 
 	aboveSeen := false
-	belowCount := 0
 	for i := len(prices) - required; i < len(prices); i++ {
 		if i < 0 {
 			continue
 		}
-		if prices[i] >= upperThreshold {
+		price := prices[i]
+		if price >= upperThreshold {
 			aboveSeen = true
 		}
-		if prices[i] <= lowerThreshold {
-			belowCount++
-		}
-		if prices[i] > lowerThreshold {
-			log.Printf("    ❌ [1h确认失败] %s: 第%d根K线价格%.2f > 下限%.2f，未持续在下方",
-				data.Symbol, i-(len(prices)-required), prices[i], lowerThreshold)
+		if price > lowerThreshold {
+			log.Printf("    ❌ [1h确认失败] %s: 第%d根K线价格%.4f > 下限%.4f，尚未完成确认",
+				data.Symbol, i-(len(prices)-required), price, lowerThreshold)
 			return false
 		}
 	}
 
 	if !aboveSeen {
-		log.Printf("    [回溯检查] %s: 最近%d根未见反弹，向前回溯60根",
+		log.Printf("    [回溯检查] %s: 最近%d根未见显著反弹，向前回溯60根寻找是否触及上阈值",
 			data.Symbol, required)
 		lookback := minInt(len(prices), 60)
 		for i := len(prices) - required - lookback; i < len(prices)-required; i++ {
@@ -591,22 +579,22 @@ func confirmedBelowOneHourEMA(data *market.Data, ema20 float64) bool {
 			}
 			if prices[i] >= upperThreshold {
 				aboveSeen = true
-				log.Printf("    ✅ [回溯发现反弹] %s: 第%d根K线价格%.2f >= 上限%.2f",
+				log.Printf("    ✅ [回溯发现反弹] %s: 第%d根K线价格%.4f >= 上限%.4f",
 					data.Symbol, i, prices[i], upperThreshold)
 				break
 			}
 		}
 	}
 
-	if aboveSeen {
-		log.Printf("    ✅ [1h确认通过] %s: 曾反弹至EMA20上方，现已持续%d根K线在下限下方",
-			data.Symbol, belowCount)
-	} else {
-		log.Printf("    ❌ [1h确认失败] %s: 未曾反弹至EMA20上方，可能一路下跌",
+	if !aboveSeen {
+		log.Printf("    ❌ [1h确认失败] %s: 未曾充分反弹至EMA20上方，可能仍在下跌通道",
 			data.Symbol)
+		return false
 	}
 
-	return aboveSeen
+	log.Printf("    ✅ [1h确认通过] %s: 已确认连续%.0f根K线在下限%.4f下方",
+		data.Symbol, float64(required), lowerThreshold)
+	return true
 }
 
 func touchedFourHourBand(data *market.Data) bool {
@@ -622,14 +610,13 @@ func touchedFourHourBand(data *market.Data) bool {
 		return false
 	}
 
-	// 定义阻力区：取4h EMA20和EMA50中较小的作为下限
 	bandLow := math.Min(ema4h20, ema4h50)
+	bandHigh := math.Max(ema4h20, ema4h50)
+	requiredOvershoot := math.Max(bandLow*PullbackMinOvershootPct, atr*PullbackMinOvershootATR)
+	resistanceFloor := bandLow + requiredOvershoot
+	resistanceCeil := bandHigh * (1.0 + EMA20TolerancePct/2)
 
-	// V4.0: 价格必须至少触及阻力区下限（4h EMA20附近）
-	// 使用0.5*ATR作为缓冲区（比之前的2%更合理）
-	resistanceFloor := bandLow - (0.5 * atr)
-
-	log.Printf("    [4h阻力区] %s: EMA20=%.2f, EMA50=%.2f, ATR=%.2f → 阻力下限=%.2f (bandLow-0.5*ATR)",
+	log.Printf("    [4h阻力区] %s: EMA20=%.4f, EMA50=%.4f, ATR=%.4f → 触及阈值=%.4f",
 		data.Symbol, ema4h20, ema4h50, atr, resistanceFloor)
 
 	prices := data.IntradaySeries.MidPrices
@@ -637,32 +624,27 @@ func touchedFourHourBand(data *market.Data) bool {
 		return false
 	}
 
-	// 查看最近80根3分钟K线（约4小时）
 	lookback := minInt(len(prices), 80)
 	maxPrice := -math.MaxFloat64
-
 	for i := len(prices) - lookback; i < len(prices); i++ {
 		if i < 0 {
 			continue
 		}
-		p := prices[i]
-		if p > maxPrice {
-			maxPrice = p
+		if prices[i] > maxPrice {
+			maxPrice = prices[i]
 		}
 	}
 
-	log.Printf("    [4h最高价] %s: 最近4h最高价=%.2f, 需触及阻力下限=%.2f → 满足=%v",
-		data.Symbol, maxPrice, resistanceFloor, maxPrice >= resistanceFloor)
+	log.Printf("    [4h最高价] %s: 最近4h最高价=%.4f, 触及阈值=%.4f (上限参考=%.4f)",
+		data.Symbol, maxPrice, resistanceFloor, resistanceCeil)
 
-	// V4.0核心逻辑：最高价必须至少触及阻力区下限（耐心等待）
 	if maxPrice < resistanceFloor {
-		log.Printf("    ❌ [4h阻力区未触及] %s: 价格还在半路上(%.2f < %.2f)，太早了",
+		log.Printf("    ❌ [4h阻力区未触及] %s: 最高价%.4f 仍低于阈值%.4f",
 			data.Symbol, maxPrice, resistanceFloor)
-		return false // 价格还在半路上，太早了
+		return false
 	}
 
-	// 如果价格进入阻力区内部或突破上限，都算触及
-	log.Printf("    ✅ [4h阻力区已触及] %s: 最高价%.2f >= 阻力下限%.2f，耐心等待完成",
+	log.Printf("    ✅ [4h阻力区已触及] %s: 最高价%.4f ≥ 阈值%.4f，确认反弹到位",
 		data.Symbol, maxPrice, resistanceFloor)
 	return true
 }
@@ -740,6 +722,25 @@ func cooledFromOverbought(data *market.Data) bool {
 		}
 	}
 	return false
+}
+
+// checkCountertrendOversold V5.0逆势策略：检查是否极度超卖（RSI <= 25）
+// 这是逆势做多的核心条件，标准比常规超卖(30)更严格
+func checkCountertrendOversold(data *market.Data) bool {
+	if data == nil {
+		return false
+	}
+
+	current := data.CurrentRSI7
+
+	// V5.0极度保守：RSI必须 <= 25
+	if current > CountertrendRSIThreshold {
+		return false
+	}
+
+	log.Printf("    ✅ [V5.0 Countertrend] %s: RSI7=%.2f <= %.0f (极度超卖)",
+		data.Symbol, current, CountertrendRSIThreshold)
+	return true
 }
 
 func minInt(a, b int) int {
