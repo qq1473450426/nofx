@@ -4,16 +4,82 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 // httpClient 带超时的HTTP客户端（10秒超时，避免阻塞）
 var httpClient = &http.Client{
 	Timeout: 10 * time.Second,
+}
+
+type marketCacheEntry struct {
+	data      *Data
+	fetchedAt time.Time
+}
+
+var (
+	marketCacheMu      sync.RWMutex
+	marketCache        = make(map[string]*marketCacheEntry)
+	marketCacheTTL     = time.Minute
+	binanceRateMu      sync.Mutex
+	lastBinanceRequest time.Time
+	minBinanceInterval = 150 * time.Millisecond
+)
+
+func getMarketCache(symbol string) *Data {
+	marketCacheMu.RLock()
+	entry, ok := marketCache[symbol]
+	marketCacheMu.RUnlock()
+	if ok && time.Since(entry.fetchedAt) < marketCacheTTL {
+		return entry.data
+	}
+	return nil
+}
+
+func getMarketCacheWithoutTTL(symbol string) *Data {
+	marketCacheMu.RLock()
+	entry, ok := marketCache[symbol]
+	marketCacheMu.RUnlock()
+	if ok {
+		return entry.data
+	}
+	return nil
+}
+
+func setMarketCache(symbol string, data *Data) {
+	marketCacheMu.Lock()
+	marketCache[symbol] = &marketCacheEntry{
+		data:      data,
+		fetchedAt: time.Now(),
+	}
+	marketCacheMu.Unlock()
+}
+
+func httpGetWithRateLimit(url string) (*http.Response, error) {
+	if strings.Contains(url, "binance.com") {
+		enforceBinanceRateLimit()
+	}
+	return httpClient.Get(url)
+}
+
+func enforceBinanceRateLimit() {
+	binanceRateMu.Lock()
+	defer binanceRateMu.Unlock()
+
+	if !lastBinanceRequest.IsZero() {
+		elapsed := time.Since(lastBinanceRequest)
+		if remaining := minBinanceInterval - elapsed; remaining > 0 {
+			time.Sleep(remaining)
+		}
+	}
+
+	lastBinanceRequest = time.Now()
 }
 
 // Data 市场数据结构
@@ -76,38 +142,51 @@ func Get(symbol string) (*Data, error) {
 	// 标准化symbol
 	symbol = Normalize(symbol)
 
-	// 获取3分钟K线数据 (最近10个)
-	klines3m, err := getKlines(symbol, "3m", 40) // 多获取一些用于计算
-	if err != nil {
-		return nil, fmt.Errorf("获取3分钟K线失败: %v", err)
+	if cached := getMarketCache(symbol); cached != nil {
+		return cached, nil
 	}
 
-	// 获取4小时K线数据 (最近220个，用于计算EMA200)
-	klines4h, err := getKlines(symbol, "4h", 220) // ✅ 增加到220根以支持EMA200计算
+	data, err := computeMarketData(symbol)
 	if err != nil {
-		return nil, fmt.Errorf("获取4小时K线失败: %v", err)
+		if stale := getMarketCacheWithoutTTL(symbol); stale != nil {
+			log.Printf("⚠️  使用缓存市场数据 %s: 获取最新行情失败: %v", symbol, err)
+			return stale, nil
+		}
+		return nil, err
 	}
 
-	// 计算当前指标 (基于3分钟最新数据)
-	currentPrice := klines3m[len(klines3m)-1].Close
-	currentEMA20 := calculateEMA(klines3m, 20)
-	currentMACD := calculateMACD(klines3m)
-	currentRSI7 := calculateRSI(klines3m, 7)
+	setMarketCache(symbol, data)
+	return data, nil
+}
 
-	// 计算价格变化百分比
-	// 1小时价格变化 = 20个3分钟K线前的价格
+func computeMarketData(symbol string) (*Data, error) {
+	// 🔧 修复时间周期不匹配问题：统一使用5分钟K线
+	// 获取5分钟K线数据 (足够多以计算EMA200)
+	klines5m, err := getKlines(symbol, "5m", 300) // 300根5分钟K线 = 25小时历史数据
+	if err != nil {
+		return nil, fmt.Errorf("获取5分钟K线失败: %v", err)
+	}
+
+	// 计算当前指标 (全部基于5分钟K线，时间维度统一)
+	currentPrice := klines5m[len(klines5m)-1].Close
+	currentEMA20 := calculateEMA(klines5m, 20)
+	currentMACD := calculateMACD(klines5m)
+	currentRSI7 := calculateRSI(klines5m, 7)
+
+	// 计算价格变化百分比 (全部基于5分钟K线)
+	// 1小时价格变化 = 12个5分钟K线前的价格 (12 * 5min = 60min)
 	priceChange1h := 0.0
-	if len(klines3m) >= 21 { // 至少需要21根K线 (当前 + 20根前)
-		price1hAgo := klines3m[len(klines3m)-21].Close
+	if len(klines5m) >= 13 { // 至少需要13根K线 (当前 + 12根前)
+		price1hAgo := klines5m[len(klines5m)-13].Close
 		if price1hAgo > 0 {
 			priceChange1h = ((currentPrice - price1hAgo) / price1hAgo) * 100
 		}
 	}
 
-	// 4小时价格变化 = 1个4小时K线前的价格
+	// 4小时价格变化 = 48个5分钟K线前的价格 (48 * 5min = 240min = 4h)
 	priceChange4h := 0.0
-	if len(klines4h) >= 2 {
-		price4hAgo := klines4h[len(klines4h)-2].Close
+	if len(klines5m) >= 49 {
+		price4hAgo := klines5m[len(klines5m)-49].Close
 		if price4hAgo > 0 {
 			priceChange4h = ((currentPrice - price4hAgo) / price4hAgo) * 100
 		}
@@ -123,13 +202,11 @@ func Get(symbol string) (*Data, error) {
 	// 获取Funding Rate
 	fundingRate, _ := getFundingRate(symbol)
 
-	// 计算日内系列数据
-	intradayData := calculateIntradaySeries(klines3m)
+	// 🔧 修复：日内系列和长期数据都使用5分钟K线（时间维度统一）
+	intradayData := calculateIntradaySeries(klines5m)
+	longerTermData := calculateLongerTermData(klines5m)
 
-	// 计算长期数据
-	longerTermData := calculateLongerTermData(klines4h)
-
-	return &Data{
+	result := &Data{
 		Symbol:            symbol,
 		CurrentPrice:      currentPrice,
 		PriceChange1h:     priceChange1h,
@@ -141,7 +218,9 @@ func Get(symbol string) (*Data, error) {
 		FundingRate:       fundingRate,
 		IntradaySeries:    intradayData,
 		LongerTermContext: longerTermData,
-	}, nil
+	}
+
+	return result, nil
 }
 
 // getKlines 从Binance获取K线数据
@@ -149,8 +228,8 @@ func getKlines(symbol, interval string, limit int) ([]Kline, error) {
 	url := fmt.Sprintf("https://fapi.binance.com/fapi/v1/klines?symbol=%s&interval=%s&limit=%d",
 		symbol, interval, limit)
 
-	// ✅ 修复: 使用带超时的HTTP客户端（10秒超时）
-	resp, err := httpClient.Get(url)
+	// ✅ 修复: 使用带超时的HTTP客户端（10秒超时）并加入频率限制
+	resp, err := httpGetWithRateLimit(url)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP请求失败: %w", err)
 	}
@@ -572,8 +651,8 @@ func calculateLongerTermData(klines []Kline) *LongerTermData {
 func getOpenInterestData(symbol string) (*OIData, error) {
 	url := fmt.Sprintf("https://fapi.binance.com/fapi/v1/openInterest?symbol=%s", symbol)
 
-	// ✅ 修复: 使用带超时的HTTP客户端
-	resp, err := httpClient.Get(url)
+	// ✅ 修复: 使用带超时的HTTP客户端 + 请求频率限制
+	resp, err := httpGetWithRateLimit(url)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP请求失败: %w", err)
 	}
@@ -613,8 +692,8 @@ func getOpenInterestData(symbol string) (*OIData, error) {
 func getFundingRate(symbol string) (float64, error) {
 	url := fmt.Sprintf("https://fapi.binance.com/fapi/v1/premiumIndex?symbol=%s", symbol)
 
-	// ✅ 修复: 使用带超时的HTTP客户端
-	resp, err := httpClient.Get(url)
+	// ✅ 修复: 使用带超时的HTTP客户端 + 请求频率限制
+	resp, err := httpGetWithRateLimit(url)
 	if err != nil {
 		return 0, fmt.Errorf("HTTP请求失败: %w", err)
 	}
