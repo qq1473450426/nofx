@@ -52,7 +52,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux go build -trimpath -ldflags="-s -w" -o nofx .
+
+# Use Go build cache to speed up compilation
+# Mount cache directories to avoid rebuilding unchanged packages
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=1 GOOS=linux go build -trimpath -ldflags="-s -w" -o nofx .
 
 # ──────────────────────────────────────────────────────────────
 # Runtime Stage (Minimal Executable Environment)

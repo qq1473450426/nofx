@@ -5,6 +5,10 @@ set -e  # 遇到错误立即退出
 echo "🚀 开始部署 NoFx Trading System..."
 echo ""
 
+# 启用 Docker BuildKit 加速构建
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
 # 拉取最新代码
 echo "📥 拉取最新代码..."
 git pull
@@ -13,9 +17,9 @@ git pull
 echo "🛑 停止旧容器..."
 docker-compose down
 
-# 重新构建镜像
-echo "🔨 重新构建镜像..."
-docker-compose build --no-cache
+# 重新构建镜像（使用缓存加速）
+echo "🔨 重新构建镜像（启用BuildKit缓存）..."
+docker-compose build
 
 # 启动服务
 echo "▶️  启动服务..."

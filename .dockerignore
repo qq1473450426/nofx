@@ -35,7 +35,12 @@ docs/
 # Runtime data
 decision_logs/
 coin_pool_cache/
+prediction_logs/
+trader_memory/
 *.log
+*.pid
+nofx.pid
+web.pid
 
 # Config files (should be mounted)
 config.json
@@ -48,3 +53,8 @@ web/dist/
 tmp/
 temp/
 *.tmp
+
+# Analysis scripts (not needed in container)
+analyze_*.py
+*.pyc
+__pycache__/
