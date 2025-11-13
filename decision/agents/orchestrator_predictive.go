@@ -630,9 +630,9 @@ func (o *DecisionOrchestrator) calculatePositionFromPrediction(
 		positionSize = availableBalance * 0.9
 	}
 
-	// 最小仓位检查
-	if positionSize < 10 {
-		return 0, 0, 0, 0, fmt.Errorf("计算的仓位太小: %.2f USDT", positionSize)
+	// 最小仓位检查（Binance要求名义价值≥100 USDT）
+	if positionSize < 100 {
+		return 0, 0, 0, 0, fmt.Errorf("计算的仓位太小: %.2f USDT (Binance要求≥100)", positionSize)
 	}
 
 	// 计算杠杆（基于波动率）
@@ -851,6 +851,12 @@ func validateEntryTiming(direction string, md *market.Data) error {
 			return fmt.Errorf("[%s] 🚫 绝对禁止：15分钟涨幅%.2f%% >8%%（异常暴涨）", symbol, change15m)
 		}
 
+		// 🆕 加强：即使强趋势，4h涨幅>8%也要限制
+		if change4h > 8.0 && rsi7 > 70 {
+			return fmt.Errorf("[%s] 🚫 绝对禁止：4h涨幅%.2f%% >8%% 且 RSI7=%.1f >70（涨幅过大+超买）",
+				symbol, change4h, rsi7)
+		}
+
 		// ⚠️ 警告区（强趋势时允许，弱趋势时拒绝）
 		if !isStrongTrend {
 			if rsi7 > 75 {
@@ -865,11 +871,20 @@ func validateEntryTiming(direction string, md *market.Data) error {
 			if change1h > 6.0 {
 				return fmt.Errorf("[%s] 🚫 禁止追高：1小时涨幅%.2f%% >6%%（涨幅过大，非强趋势）", symbol, change1h)
 			}
+			if change4h > 8.0 {
+				return fmt.Errorf("[%s] 🚫 禁止追高：4小时涨幅%.2f%% >8%%（涨幅过大，非强趋势）", symbol, change4h)
+			}
 			if deviationFromEMA > 5.0 {
 				return fmt.Errorf("[%s] 🚫 禁止追高：偏离EMA20 +%.2f%% >5%%（偏离过远，非强趋势）", symbol, deviationFromEMA)
 			}
 		} else {
-			// 强趋势中也要警告，但不拒绝
+			// 🆕 强趋势时也要警告极端情况
+			if rsi7 > 80 {
+				return fmt.Errorf("[%s] 🚫 禁止追高：RSI7=%.1f >80（极度超买，即使强趋势也不开多）", symbol, rsi7)
+			}
+			if change4h > 8.0 {
+				log.Printf("⚠️ [%s] 严重警告：4h涨幅%.2f%% >8%%，强趋势但已超买，风险极高", symbol, change4h)
+			}
 			if rsi7 > 75 || change15m > 4.0 {
 				log.Printf("⚠️ [%s] 警告：RSI7=%.1f或涨幅%.2f%%偏高，但强趋势允许进场", symbol, rsi7, change15m)
 			}
@@ -892,6 +907,12 @@ func validateEntryTiming(direction string, md *market.Data) error {
 			return fmt.Errorf("[%s] 🚫 绝对禁止：15分钟跌幅%.2f%% <-8%%（异常暴跌）", symbol, change15m)
 		}
 
+		// 🆕 加强：即使强趋势，4h跌幅>8%也要限制
+		if change4h < -8.0 && rsi7 < 30 {
+			return fmt.Errorf("[%s] 🚫 绝对禁止：4h跌幅%.2f%% <-8%% 且 RSI7=%.1f <30（跌幅过大+超卖）",
+				symbol, change4h, rsi7)
+		}
+
 		// ⚠️ 警告区（强趋势时允许，弱趋势时拒绝）
 		if !isStrongTrend {
 			if rsi7 < 25 {
@@ -906,11 +927,20 @@ func validateEntryTiming(direction string, md *market.Data) error {
 			if change1h < -6.0 {
 				return fmt.Errorf("[%s] 🚫 禁止杀跌：1小时跌幅%.2f%% <-6%%（跌幅过大，非强趋势）", symbol, change1h)
 			}
+			if change4h < -8.0 {
+				return fmt.Errorf("[%s] 🚫 禁止杀跌：4小时跌幅%.2f%% <-8%%（跌幅过大，非强趋势）", symbol, change4h)
+			}
 			if deviationFromEMA < -5.0 {
 				return fmt.Errorf("[%s] 🚫 禁止杀跌：偏离EMA20 %.2f%% <-5%%（偏离过远，非强趋势）", symbol, deviationFromEMA)
 			}
 		} else {
-			// 强趋势中也要警告，但不拒绝
+			// 🆕 强趋势时也要警告极端情况
+			if rsi7 < 20 {
+				return fmt.Errorf("[%s] 🚫 禁止杀跌：RSI7=%.1f <20（极度超卖，即使强趋势也不开空）", symbol, rsi7)
+			}
+			if change4h < -8.0 {
+				log.Printf("⚠️ [%s] 严重警告：4h跌幅%.2f%% <-8%%，强趋势但已超卖，风险极高", symbol, change4h)
+			}
 			if rsi7 < 25 || change15m < -4.0 {
 				log.Printf("⚠️ [%s] 警告：RSI7=%.1f或跌幅%.2f%%偏低，但强趋势允许进场", symbol, rsi7, change15m)
 			}
