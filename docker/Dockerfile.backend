@@ -42,6 +42,9 @@ RUN apk update && apk add --no-cache git make gcc g++ musl-dev
 
 COPY --from=ta-lib-builder /usr/local /usr/local
 
+# Set Go proxy for faster dependency download
+ENV GOPROXY=https://goproxy.cn,direct
+
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
