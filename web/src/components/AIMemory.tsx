@@ -42,8 +42,11 @@ export function AIMemory({ traderId, language }: { traderId: string; language: L
     traderId ? `memory-${traderId}` : null,
     async () => {
       console.log('📡 Fetching memory data for:', traderId);
-      // 直接访问后端端口8080，绕过Vite proxy
-      const response = await fetch(`http://localhost:8080/api/memory?trader_id=${traderId}`);
+      // 动态检测环境：本地开发用 localhost，生产环境用当前域名
+      const baseUrl = window.location.hostname === 'localhost'
+        ? 'http://localhost:8080'
+        : `http://${window.location.hostname}:8080`;
+      const response = await fetch(`${baseUrl}/api/memory?trader_id=${traderId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
