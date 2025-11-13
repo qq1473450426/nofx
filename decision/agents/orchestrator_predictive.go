@@ -801,7 +801,7 @@ func (o *DecisionOrchestrator) validateRiskParameters(
 // ==================== 入场时机验证 ====================
 
 // validateEntryTiming 验证入场时机，防止追涨杀跌
-// 这是硬约束层，不依赖AI prompt，在决策执行前强制检查
+// 双层验证：根据趋势强度动态调整约束（强趋势放宽，弱趋势严格）
 func validateEntryTiming(direction string, md *market.Data) error {
 	if md == nil {
 		return fmt.Errorf("市场数据为空")
@@ -813,7 +813,9 @@ func validateEntryTiming(direction string, md *market.Data) error {
 	rsi14 := md.CurrentRSI14
 	change15m := md.PriceChange15m
 	change1h := md.PriceChange1h
+	change4h := md.PriceChange4h
 	ema20 := md.CurrentEMA20
+	macd := md.CurrentMACD
 
 	// 计算价格偏离EMA20的幅度
 	var deviationFromEMA float64
@@ -821,31 +823,60 @@ func validateEntryTiming(direction string, md *market.Data) error {
 		deviationFromEMA = (price - ema20) / ema20 * 100
 	}
 
+	// 🎯 判断趋势强度（用于放宽约束）
+	var isStrongTrend bool
+	if md.LongerTermContext != nil && md.LongerTermContext.EMA50 > 0 {
+		ema50 := md.LongerTermContext.EMA50
+
+		// 强上升趋势：价格>EMA20>EMA50 且 MACD>0 且 4h涨幅>3%
+		isStrongUptrend := price > ema20 && ema20 > ema50 && macd > 0 && change4h > 3.0
+
+		// 强下降趋势：价格<EMA20<EMA50 且 MACD<0 且 4h跌幅>3%
+		isStrongDowntrend := price < ema20 && ema20 < ema50 && macd < 0 && change4h < -3.0
+
+		isStrongTrend = isStrongUptrend || isStrongDowntrend
+
+		if isStrongTrend {
+			log.Printf("🔥 [%s] 检测到强趋势，放宽入场约束", symbol)
+		}
+	}
+
 	// ============ 做多入场时机检查 ============
 	if direction == "long" {
-		// 1. 禁止在严重超买区做多（追高风险极大）
-		if rsi7 > 75 {
-			return fmt.Errorf("[%s] 🚫 禁止追高：RSI7=%.1f >75（严重超买，等待回调）", symbol, rsi7)
+		// 🚫 绝对禁止区（即使强趋势也拒绝）
+		if rsi7 > 85 {
+			return fmt.Errorf("[%s] 🚫 绝对禁止：RSI7=%.1f >85（极度超买）", symbol, rsi7)
 		}
-		if rsi14 > 70 {
-			return fmt.Errorf("[%s] 🚫 禁止追高：RSI14=%.1f >70（超买区域，等待回调）", symbol, rsi14)
-		}
-
-		// 2. 禁止在短期暴涨后做多
-		if change15m > 3.0 {
-			return fmt.Errorf("[%s] 🚫 禁止追高：15分钟涨幅%.2f%% >3%%（短期暴涨，等待回调）", symbol, change15m)
-		}
-		if change1h > 5.0 {
-			return fmt.Errorf("[%s] 🚫 禁止追高：1小时涨幅%.2f%% >5%%（涨幅过大，等待回调）", symbol, change1h)
+		if change15m > 8.0 {
+			return fmt.Errorf("[%s] 🚫 绝对禁止：15分钟涨幅%.2f%% >8%%（异常暴涨）", symbol, change15m)
 		}
 
-		// 3. 禁止在价格远高于EMA20时做多（偏离均线过远）
-		if deviationFromEMA > 4.0 {
-			return fmt.Errorf("[%s] 🚫 禁止追高：价格偏离EMA20 +%.2f%% >4%%（偏离过远，等待回踩）", symbol, deviationFromEMA)
+		// ⚠️ 警告区（强趋势时允许，弱趋势时拒绝）
+		if !isStrongTrend {
+			if rsi7 > 75 {
+				return fmt.Errorf("[%s] 🚫 禁止追高：RSI7=%.1f >75（超买，非强趋势）", symbol, rsi7)
+			}
+			if rsi14 > 70 {
+				return fmt.Errorf("[%s] 🚫 禁止追高：RSI14=%.1f >70（超买，非强趋势）", symbol, rsi14)
+			}
+			if change15m > 4.0 {
+				return fmt.Errorf("[%s] 🚫 禁止追高：15分钟涨幅%.2f%% >4%%（涨幅过大，非强趋势）", symbol, change15m)
+			}
+			if change1h > 6.0 {
+				return fmt.Errorf("[%s] 🚫 禁止追高：1小时涨幅%.2f%% >6%%（涨幅过大，非强趋势）", symbol, change1h)
+			}
+			if deviationFromEMA > 5.0 {
+				return fmt.Errorf("[%s] 🚫 禁止追高：偏离EMA20 +%.2f%% >5%%（偏离过远，非强趋势）", symbol, deviationFromEMA)
+			}
+		} else {
+			// 强趋势中也要警告，但不拒绝
+			if rsi7 > 75 || change15m > 4.0 {
+				log.Printf("⚠️ [%s] 警告：RSI7=%.1f或涨幅%.2f%%偏高，但强趋势允许进场", symbol, rsi7, change15m)
+			}
 		}
 
-		// ✅ 理想做多区域：RSI 30-60，小幅回调或横盘后启动
-		if rsi7 >= 30 && rsi7 <= 60 && change15m < 2.0 && deviationFromEMA < 3.0 {
+		// ✅ 理想做多区域
+		if rsi7 >= 30 && rsi7 <= 65 && change15m < 3.0 && deviationFromEMA < 4.0 {
 			log.Printf("✅ [%s] 入场时机良好：RSI7=%.1f, 15m涨幅%.2f%%, 偏离EMA20=%.2f%%",
 				symbol, rsi7, change15m, deviationFromEMA)
 		}
@@ -853,29 +884,40 @@ func validateEntryTiming(direction string, md *market.Data) error {
 
 	// ============ 做空入场时机检查 ============
 	if direction == "short" {
-		// 1. 禁止在严重超卖区做空（杀跌风险极大）
-		if rsi7 < 25 {
-			return fmt.Errorf("[%s] 🚫 禁止杀跌：RSI7=%.1f <25（严重超卖，可能反弹）", symbol, rsi7)
+		// 🚫 绝对禁止区（即使强趋势也拒绝）
+		if rsi7 < 15 {
+			return fmt.Errorf("[%s] 🚫 绝对禁止：RSI7=%.1f <15（极度超卖）", symbol, rsi7)
 		}
-		if rsi14 < 30 {
-			return fmt.Errorf("[%s] 🚫 禁止杀跌：RSI14=%.1f <30（超卖区域，可能反弹）", symbol, rsi14)
-		}
-
-		// 2. 禁止在短期暴跌后做空
-		if change15m < -3.0 {
-			return fmt.Errorf("[%s] 🚫 禁止杀跌：15分钟跌幅%.2f%% <-3%%（短期暴跌，可能反弹）", symbol, change15m)
-		}
-		if change1h < -5.0 {
-			return fmt.Errorf("[%s] 🚫 禁止杀跌：1小时跌幅%.2f%% <-5%%（跌幅过大，可能反弹）", symbol, change1h)
+		if change15m < -8.0 {
+			return fmt.Errorf("[%s] 🚫 绝对禁止：15分钟跌幅%.2f%% <-8%%（异常暴跌）", symbol, change15m)
 		}
 
-		// 3. 禁止在价格远低于EMA20时做空（偏离均线过远）
-		if deviationFromEMA < -4.0 {
-			return fmt.Errorf("[%s] 🚫 禁止杀跌：价格偏离EMA20 %.2f%% <-4%%（偏离过远，可能反抽）", symbol, deviationFromEMA)
+		// ⚠️ 警告区（强趋势时允许，弱趋势时拒绝）
+		if !isStrongTrend {
+			if rsi7 < 25 {
+				return fmt.Errorf("[%s] 🚫 禁止杀跌：RSI7=%.1f <25（超卖，非强趋势）", symbol, rsi7)
+			}
+			if rsi14 < 30 {
+				return fmt.Errorf("[%s] 🚫 禁止杀跌：RSI14=%.1f <30（超卖，非强趋势）", symbol, rsi14)
+			}
+			if change15m < -4.0 {
+				return fmt.Errorf("[%s] 🚫 禁止杀跌：15分钟跌幅%.2f%% <-4%%（跌幅过大，非强趋势）", symbol, change15m)
+			}
+			if change1h < -6.0 {
+				return fmt.Errorf("[%s] 🚫 禁止杀跌：1小时跌幅%.2f%% <-6%%（跌幅过大，非强趋势）", symbol, change1h)
+			}
+			if deviationFromEMA < -5.0 {
+				return fmt.Errorf("[%s] 🚫 禁止杀跌：偏离EMA20 %.2f%% <-5%%（偏离过远，非强趋势）", symbol, deviationFromEMA)
+			}
+		} else {
+			// 强趋势中也要警告，但不拒绝
+			if rsi7 < 25 || change15m < -4.0 {
+				log.Printf("⚠️ [%s] 警告：RSI7=%.1f或跌幅%.2f%%偏低，但强趋势允许进场", symbol, rsi7, change15m)
+			}
 		}
 
-		// ✅ 理想做空区域：RSI 40-70，小幅反弹或横盘后下跌
-		if rsi7 >= 40 && rsi7 <= 70 && change15m > -2.0 && deviationFromEMA > -3.0 {
+		// ✅ 理想做空区域
+		if rsi7 >= 35 && rsi7 <= 70 && change15m > -3.0 && deviationFromEMA > -4.0 {
 			log.Printf("✅ [%s] 入场时机良好：RSI7=%.1f, 15m跌幅%.2f%%, 偏离EMA20=%.2f%%",
 				symbol, rsi7, change15m, deviationFromEMA)
 		}
