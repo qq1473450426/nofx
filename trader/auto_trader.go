@@ -56,6 +56,7 @@ type AutoTraderConfig struct {
 
 	// 扫描配置
 	ScanInterval time.Duration // 扫描间隔（建议3分钟）
+	KlineInterval string        // K线周期（如 "5m", "10m", "15m"）
 
 	// 账户配置
 	InitialBalance float64 // 初始金额（用于计算盈亏，需手动设置）
@@ -234,6 +235,9 @@ func NewAutoTrader(config AutoTraderConfig) (*AutoTrader, error) {
 			}
 		}
 	}
+
+	// 🎯 设置全局K线周期（根据配置）
+	market.SetDefaultInterval(config.KlineInterval)
 
 	return &AutoTrader{
 		id:                    config.ID,

@@ -11,7 +11,8 @@
       "hyperliquid_testnet": false,
       "deepseek_key": "your_deepseek_api_key",
       "initial_balance": 1000,
-      "scan_interval_minutes": 3
+      "scan_interval_minutes": 3,
+      "kline_interval": "5m"
     },
     {
       "id": "binance_qwen",
@@ -24,7 +25,8 @@
       "binance_secret_key": "your_binance_secret_key",
       "qwen_key": "your_qwen_api_key",
       "initial_balance": 1000,
-      "scan_interval_minutes": 3
+      "scan_interval_minutes": 3,
+      "kline_interval": "10m"
     },
     {
       "id": "binance_custom",

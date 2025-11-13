@@ -30,7 +30,51 @@ var (
 	binanceRateMu      sync.Mutex
 	lastBinanceRequest time.Time
 	minBinanceInterval = 150 * time.Millisecond
+
+	// 🎛️ K线周期配置（可通过 SetDefaultInterval 动态设置）
+	defaultInterval = "5m"  // 默认5分钟K线
+	defaultLimit    = 300   // 默认获取300根K线
 )
+
+// SetDefaultInterval 设置全局K线周期（在trader启动时调用）
+func SetDefaultInterval(interval string) {
+	// 计算该周期需要多少根K线才能覆盖25小时（保证足够计算EMA200等指标）
+	limit := calculateKlineLimit(interval)
+
+	defaultInterval = interval
+	defaultLimit = limit
+	log.Printf("📊 [Market Data] K线周期设置为 %s (获取 %d 根K线)", interval, limit)
+}
+
+// calculateKlineLimit 根据K线周期计算需要获取的K线数量（覆盖约25小时）
+func calculateKlineLimit(interval string) int {
+	// 将interval转换为分钟数
+	minutes := 0
+	switch interval {
+	case "1m":
+		minutes = 1
+	case "3m":
+		minutes = 3
+	case "5m":
+		minutes = 5
+	case "15m":
+		minutes = 15
+	case "30m":
+		minutes = 30
+	case "1h":
+		minutes = 60
+	case "2h":
+		minutes = 120
+	case "4h":
+		minutes = 240
+	default:
+		log.Printf("⚠️  未知的K线周期 %s，使用默认5分钟", interval)
+		minutes = 5
+	}
+
+	// 覆盖25小时 = 1500分钟
+	return (1500 / minutes) + 10 // +10 作为缓冲
+}
 
 func getMarketCache(symbol string) *Data {
 	marketCacheMu.RLock()
@@ -167,79 +211,42 @@ func Get(symbol string) (*Data, error) {
 }
 
 func computeMarketData(symbol string) (*Data, error) {
-	// 🔧 修复时间周期不匹配问题：统一使用5分钟K线
-	// 获取5分钟K线数据 (足够多以计算EMA200)
-	klines5m, err := getKlines(symbol, "5m", 300) // 300根5分钟K线 = 25小时历史数据
+	// 🔧 使用动态K线周期配置（通过 SetDefaultInterval 设置）
+	// 获取K线数据 (足够多以计算EMA200)
+	klines, err := getKlines(symbol, defaultInterval, defaultLimit)
 	if err != nil {
-		return nil, fmt.Errorf("获取5分钟K线失败: %v", err)
+		return nil, fmt.Errorf("获取%s K线失败: %v", defaultInterval, err)
 	}
 
-	// 计算当前指标 (全部基于5分钟K线，时间维度统一)
-	currentPrice := klines5m[len(klines5m)-1].Close
-	currentEMA20 := calculateEMA(klines5m, 20)
-	currentMACD := calculateMACD(klines5m)
-	macdSignal := calculateMACDSignal(klines5m) // 🆕 MACD信号线
-	currentRSI7 := calculateRSI(klines5m, 7)
-	currentRSI14 := calculateRSI(klines5m, 14) // 🆕 RSI14
-
-	// 计算价格变化百分比 (全部基于5分钟K线)
-	// 🆕 15分钟价格变化 = 3个5分钟K线前的价格 (3 * 5min = 15min)
-	priceChange15m := 0.0
-	if len(klines5m) >= 4 { // 至少需要4根K线 (当前 + 3根前)
-		price15mAgo := klines5m[len(klines5m)-4].Close
-		if price15mAgo > 0 {
-			priceChange15m = ((currentPrice - price15mAgo) / price15mAgo) * 100
-		}
+	// 🚨 修复前视偏差：排除最后一根未收盘的K线
+	// 最后一根K线的closeTime是未来时间，其Close价格实时变化，会导致回测失真
+	if len(klines) < 2 {
+		return nil, fmt.Errorf("K线数据不足")
 	}
+	confirmedKlines := klines[:len(klines)-1] // 只使用已收盘的K线
+	currentPrice := klines[len(klines)-1].Close // 实时价格（用于显示）
 
-	// 🆕 30分钟价格变化 = 6个5分钟K线前的价格 (6 * 5min = 30min)
-	priceChange30m := 0.0
-	if len(klines5m) >= 7 { // 至少需要7根K线 (当前 + 6根前)
-		price30mAgo := klines5m[len(klines5m)-7].Close
-		if price30mAgo > 0 {
-			priceChange30m = ((currentPrice - price30mAgo) / price30mAgo) * 100
-		}
-	}
+	// 计算当前指标 (全部基于已收盘的K线，避免未来信息泄露)
+	currentEMA20 := calculateEMA(confirmedKlines, 20)
+	currentMACD := calculateMACD(confirmedKlines)
+	macdSignal := calculateMACDSignal(confirmedKlines) // 🆕 MACD信号线
+	currentRSI7 := calculateRSI(confirmedKlines, 7)
+	currentRSI14 := calculateRSI(confirmedKlines, 14) // 🆕 RSI14
 
-	// 1小时价格变化 = 12个5分钟K线前的价格 (12 * 5min = 60min)
-	priceChange1h := 0.0
-	if len(klines5m) >= 13 { // 至少需要13根K线 (当前 + 12根前)
-		price1hAgo := klines5m[len(klines5m)-13].Close
-		if price1hAgo > 0 {
-			priceChange1h = ((currentPrice - price1hAgo) / price1hAgo) * 100
-		}
-	}
+	// 🎯 根据K线周期动态计算索引
+	// 计算每个时间段需要回溯多少根K线
+	intervalMinutes := getIntervalMinutes(defaultInterval)
 
-	// 4小时价格变化 = 48个5分钟K线前的价格 (48 * 5min = 240min = 4h)
-	priceChange4h := 0.0
-	if len(klines5m) >= 49 {
-		price4hAgo := klines5m[len(klines5m)-49].Close
-		if price4hAgo > 0 {
-			priceChange4h = ((currentPrice - price4hAgo) / price4hAgo) * 100
-		}
-	}
+	// 计算价格变化百分比 (基于已收盘K线，使用最后一根已确认价格)
+	lastConfirmedPrice := confirmedKlines[len(confirmedKlines)-1].Close
+	priceChange15m := calculatePriceChange(confirmedKlines, lastConfirmedPrice, 15, intervalMinutes)
+	priceChange30m := calculatePriceChange(confirmedKlines, lastConfirmedPrice, 30, intervalMinutes)
+	priceChange1h := calculatePriceChange(confirmedKlines, lastConfirmedPrice, 60, intervalMinutes)
+	priceChange4h := calculatePriceChange(confirmedKlines, lastConfirmedPrice, 240, intervalMinutes)
+	priceChange24h := calculatePriceChange(confirmedKlines, lastConfirmedPrice, 1440, intervalMinutes)
 
-	// 🆕 24小时价格变化 = 288个5分钟K线前的价格 (288 * 5min = 1440min = 24h)
-	priceChange24h := 0.0
-	if len(klines5m) >= 289 {
-		price24hAgo := klines5m[len(klines5m)-289].Close
-		if price24hAgo > 0 {
-			priceChange24h = ((currentPrice - price24hAgo) / price24hAgo) * 100
-		}
-	}
-
-	// 🆕 计算24小时成交额（使用最近288根5分钟K线的成交量之和 * 平均价格）
-	volume24h := 0.0
-	if len(klines5m) >= 288 {
-		totalVolume := 0.0
-		avgPrice := 0.0
-		for i := len(klines5m) - 288; i < len(klines5m); i++ {
-			totalVolume += klines5m[i].Volume
-			avgPrice += klines5m[i].Close
-		}
-		avgPrice = avgPrice / 288.0
-		volume24h = totalVolume * avgPrice
-	}
+	// 🆕 计算24小时成交额（基于已收盘K线）
+	volume24h := calculate24hVolume(confirmedKlines, 1440, intervalMinutes)
 
 	// 获取OI数据
 	oiData, err := getOpenInterestData(symbol)
@@ -251,13 +258,13 @@ func computeMarketData(symbol string) (*Data, error) {
 	// 获取Funding Rate
 	fundingRate, _ := getFundingRate(symbol)
 
-	// 🔧 修复：日内系列和长期数据都使用5分钟K线（时间维度统一）
-	intradayData := calculateIntradaySeries(klines5m)
-	longerTermData := calculateLongerTermData(klines5m)
+	// 🔧 修复：日内系列和长期数据都使用已确认K线（避免前视偏差）
+	intradayData := calculateIntradaySeries(confirmedKlines)
+	longerTermData := calculateLongerTermData(confirmedKlines)
 
 	result := &Data{
 		Symbol:            symbol,
-		CurrentPrice:      currentPrice,
+		CurrentPrice:      currentPrice, // 实时价格（前端显示用）
 		PriceChange15m:    priceChange15m, // 🆕
 		PriceChange30m:    priceChange30m, // 🆕
 		PriceChange1h:     priceChange1h,
@@ -273,7 +280,7 @@ func computeMarketData(symbol string) (*Data, error) {
 		FundingRate:       fundingRate,
 		IntradaySeries:    intradayData,
 		LongerTermContext: longerTermData,
-		Timestamp:         klines5m[len(klines5m)-1].CloseTime / 1000,
+		Timestamp:         confirmedKlines[len(confirmedKlines)-1].CloseTime / 1000, // 使用最后一根已确认K线的时间
 	}
 
 	return result, nil
@@ -921,3 +928,68 @@ func parseFloat(v interface{}) (float64, error) {
 		return 0, fmt.Errorf("unsupported type: %T", v)
 	}
 }
+
+// 🎯 辅助函数：根据K线周期获取分钟数
+func getIntervalMinutes(interval string) int {
+	switch interval {
+	case "1m":
+		return 1
+	case "3m":
+		return 3
+	case "5m":
+		return 5
+	case "15m":
+		return 15
+	case "30m":
+		return 30
+	case "1h":
+		return 60
+	case "2h":
+		return 120
+	case "4h":
+		return 240
+	default:
+		log.Printf("⚠️  未知的K线周期 %s，默认使用5分钟", interval)
+		return 5
+	}
+}
+
+// 🎯 辅助函数：计算价格变化百分比
+// targetMinutes: 目标时间段（分钟），如 15, 30, 60, 240, 1440
+// intervalMinutes: K线周期（分钟）
+func calculatePriceChange(klines []Kline, currentPrice float64, targetMinutes, intervalMinutes int) float64 {
+	// 计算需要回溯多少根K线
+	barsToLookback := targetMinutes / intervalMinutes
+	requiredLength := barsToLookback + 1 // 当前K线 + 回溯的K线
+
+	if len(klines) < requiredLength {
+		return 0.0
+	}
+
+	priceAgo := klines[len(klines)-1-barsToLookback].Close
+	if priceAgo > 0 {
+		return ((currentPrice - priceAgo) / priceAgo) * 100
+	}
+	return 0.0
+}
+
+// 🎯 辅助函数：计算24小时成交额
+func calculate24hVolume(klines []Kline, targetMinutes, intervalMinutes int) float64 {
+	barsNeeded := targetMinutes / intervalMinutes
+	if len(klines) < barsNeeded {
+		return 0.0
+	}
+
+	totalVolume := 0.0
+	avgPrice := 0.0
+	startIdx := len(klines) - barsNeeded
+
+	for i := startIdx; i < len(klines); i++ {
+		totalVolume += klines[i].Volume
+		avgPrice += klines[i].Close
+	}
+
+	avgPrice = avgPrice / float64(barsNeeded)
+	return totalVolume * avgPrice
+}
+
