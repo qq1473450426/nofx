@@ -651,12 +651,16 @@ func (agent *PredictionAgent) validatePredictionEnhanced(pred *types.Prediction,
 
 	rsi := md.CurrentRSI7
 
-	// 🔧 放宽RSI检查：只在极端情况才警告
-	if pred.Direction == "up" && rsi > 85 && pred.Probability > 0.70 {
-		return fmt.Errorf("RSI=%.2f 严重超买，高概率预测上涨风险极高", rsi)
+	// 🔧 修正：只拒绝"逆势"的极端预测，允许"顺势"预测
+	// RSI>85（超买）+ 预测down（做空）→ 可能错误（超买时应该会涨或横盘，不太会跌）
+	// RSI<15（超卖）+ 预测up（做多）→ 可能错误（超卖时应该会跌或横盘，不太会涨）
+	if pred.Direction == "down" && rsi > 85 && pred.Probability > 0.75 {
+		return fmt.Errorf("RSI=%.2f 极度超买，高概率%.0f%%预测下跌可能错误（超买通常继续涨或盘整）",
+			rsi, pred.Probability*100)
 	}
-	if pred.Direction == "down" && rsi < 15 && pred.Probability > 0.70 {
-		return fmt.Errorf("RSI=%.2f 严重超卖，高概率预测下跌风险极高", rsi)
+	if pred.Direction == "up" && rsi < 15 && pred.Probability > 0.75 {
+		return fmt.Errorf("RSI=%.2f 极度超卖，高概率%.0f%%预测上涨可能错误（超卖通常继续跌或盘整）",
+			rsi, pred.Probability*100)
 	}
 
 	// 🆕 趋势一致性检查（仅检查明显逆势）
