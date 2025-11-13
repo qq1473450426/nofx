@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762883062",
+  "timestamp": "2025-11-12T01:44:22.618274+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "RSI7极度超卖，市场情绪悲观但可能反弹。价格低于EMA20和EMA50，MACD为负，但超卖状态提供逢低买入机会。",
+    "key_factors": [
+      "RSI7极度超卖",
+      "价格低于EMA20和EMA50",
+      "MACD为负"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 102903.1,
+  "target_time": "2025-11-13T01:44:22.618273+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

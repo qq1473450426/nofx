@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762474749",
+  "timestamp": "2025-11-07T08:19:09.778413+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 580,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于下行趋势且低于所有关键均线，但RSI进入超卖区域并出现MACD金叉，暗示短期反弹可能。市场成交量萎缩表明抛压减弱，结合极度恐惧情绪，存在抄底资金介入机会。尽管账户夏普比为负，降低预测信心，但当前信号强度支持适度看涨。历史准确率偏低提醒需控制风险，但不否定反弹概率。",
+    "key_factors": [
+      "RSI超卖反弹信号",
+      "MACD金叉动能转强",
+      "成交量萎缩见底可能"
+    ],
+    "risk_level": "medium",
+    "worst_case": -320,
+    "best_case": 950
+  },
+  "entry_price": 101060.2,
+  "target_time": "2025-11-07T12:19:09.778412+08:00",
+  "evaluated": true,
+  "actual_move": 0.7275861318303376,
+  "actual_high": 102311,
+  "actual_low": 100700.1,
+  "is_correct": true,
+  "accuracy": 0.001254458847983364,
+  "evaluated_time": "2025-11-07T23:22:43.609506+08:00"
+}

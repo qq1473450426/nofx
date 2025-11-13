@@ -1,0 +1,32 @@
+{
+  "id": "ADAUSDT_1762313193",
+  "timestamp": "2025-11-05T11:26:33.461627+08:00",
+  "symbol": "ADAUSDT",
+  "prediction": {
+    "symbol": "ADAUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -2.8,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs with strong bearish alignment, indicating persistent downtrend control. Despite short-term bounce and positive MACD, RSI near overbought without price confirmation suggests exhaustion. High volume on weak upward momentum reflects potential distribution. Market-wide panic sentiment and low greed index increase downside volatility risk.",
+    "key_factors": [
+      "EMA20 \u003c EMA50 \u003c EMA200",
+      "RSI divergence without breakout",
+      "bearish social sentiment",
+      "high volume with low price gain"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 0.5309,
+  "target_time": "2025-11-05T15:26:33.461626+08:00",
+  "evaluated": true,
+  "actual_move": -0.037671877943132225,
+  "actual_high": 0.5375,
+  "actual_low": 0.5282,
+  "is_correct": true,
+  "accuracy": 0.01345424212254731,
+  "evaluated_time": "2025-11-06T01:57:49.301541+08:00"
+}

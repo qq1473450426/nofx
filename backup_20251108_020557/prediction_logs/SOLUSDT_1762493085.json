@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762493085",
+  "timestamp": "2025-11-07T13:24:45.399251+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.7675609774358162,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格虽处于下行趋势且低于所有主要EMA，但短期RSI接近超买区域，MACD维持多头信号，1小时和4小时涨势一致，表明短期动能转强。账户层面夏普比率为负，系统整体胜率偏低，需谨慎对待信号强度，因此概率适度下调。历史准确率一般，但当前多头动能持续释放，结合低成交量反弹需警惕持续性，但仍倾向短期上行。",
+    "key_factors": [
+      "短期动能转强",
+      "MACD多头信号",
+      "RSI接近超买"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.2,
+    "best_case": 3.5
+  },
+  "entry_price": 157.18,
+  "target_time": "2025-11-07T17:24:45.39925+08:00",
+  "evaluated": true,
+  "actual_move": -1.0497518768291167,
+  "actual_high": 158.2,
+  "actual_low": 155.5,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:22.212153+08:00"
+}

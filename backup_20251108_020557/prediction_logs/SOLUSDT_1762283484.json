@@ -1,0 +1,32 @@
+{
+  "id": "SOLUSDT_1762283484",
+  "timestamp": "2025-11-05T03:11:24.083726+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -2.8,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price is in a strong downtrend with bearish momentum, confirmed by lower highs, declining EMAs, and negative MACD. Despite high volume and panic sentiment, price failed to rebound, suggesting selling pressure dominates. RSI near neutral but lacks bullish confirmation.",
+    "key_factors": [
+      "bearish_ema_alignment",
+      "high_volume_sell-off",
+      "negative_macd",
+      "market_distribution_phase"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 155.65,
+  "target_time": "2025-11-05T07:11:24.083725+08:00",
+  "evaluated": true,
+  "actual_move": -0.22486347574686433,
+  "actual_high": 157.36,
+  "actual_low": 145.67,
+  "is_correct": true,
+  "accuracy": 0.08030838419530861,
+  "evaluated_time": "2025-11-06T01:58:09.12841+08:00"
+}

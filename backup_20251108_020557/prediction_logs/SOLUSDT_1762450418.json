@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762450418",
+  "timestamp": "2025-11-07T01:33:38.190603+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.75,
+    "expected_move": -2.35,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "价格处于明显下行趋势，尽管短期有反弹迹象但整体情绪偏空。RSI与价格背离显示上涨动能不足。成交量未有效放大，难以支撑持续反弹。",
+    "key_factors": [
+      "下行趋势明显",
+      "RSI与价格背离",
+      "成交量未有效放大"
+    ],
+    "risk_level": "high",
+    "worst_case": -5.8,
+    "best_case": 1.2
+  },
+  "entry_price": 156.69,
+  "target_time": "2025-11-08T01:33:38.190603+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

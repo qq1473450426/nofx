@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762962151",
+  "timestamp": "2025-11-12T23:42:31.551595+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "RSI超卖，MACD接近金叉，短期反弹机会。",
+    "key_factors": [
+      "r14",
+      "m",
+      "ms"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.6688292810918985,
+    "best_case": 3.5
+  },
+  "entry_price": 156.06,
+  "target_time": "2025-11-13T23:42:31.551595+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

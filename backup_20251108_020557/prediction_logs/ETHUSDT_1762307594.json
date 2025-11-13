@@ -1,0 +1,33 @@
+{
+  "id": "ETHUSDT_1762307594",
+  "timestamp": "2025-11-05T09:53:14.725696+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.82,
+    "expected_move": -2.8,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs with strong bearish momentum indicated by negative MACD and declining structure. Despite RSI nearing overbought, the distribution phase and weak volume suggest lack of buying conviction. Market structure favors continued downside in near term.",
+    "key_factors": [
+      "price_below_key_emas",
+      "negative_macd",
+      "low_volume",
+      "bearish_social_sentiment",
+      "funding_rate_slight_positive_but_not_bullish"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 3221.07,
+  "target_time": "2025-11-05T13:53:14.725696+08:00",
+  "evaluated": true,
+  "actual_move": 3.2610281676585715,
+  "actual_high": 3353.8,
+  "actual_low": 3220.67,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:58:04.348118+08:00"
+}

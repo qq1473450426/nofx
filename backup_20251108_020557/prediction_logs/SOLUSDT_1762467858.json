@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762467858",
+  "timestamp": "2025-11-07T06:24:18.85673+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.76,
+    "expected_move": -1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于强劲下行趋势，位于所有关键均线之下，且4小时级别呈空头排列，短期反弹缺乏成交量支持。尽管MACD出现金叉且RSI中性，但市场整体情绪偏熊，叠加BTC下行压力，增加下跌概率。账户夏普比率为负，历史胜率偏低，因此适度下调预测概率，但仍基于技术信号维持看跌判断。",
+    "key_factors": [
+      "强空头趋势结构",
+      "量能萎缩反弹",
+      "BTC联动下行风险"
+    ],
+    "risk_level": "medium",
+    "worst_case": -3.2,
+    "best_case": 0.9
+  },
+  "entry_price": 156,
+  "target_time": "2025-11-07T10:24:18.856729+08:00",
+  "evaluated": true,
+  "actual_move": 0.25641025641026005,
+  "actual_high": 157.57,
+  "actual_low": 153.34,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:13.268524+08:00"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762289239",
+  "timestamp": "2025-11-05T04:47:19.962085+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.72,
+    "expected_move": -2.1,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs with strong bearish momentum, low volume suggesting lack of buying interest, and market-wide panic increasing sell-side pressure. Despite near-term support at $100k for BTC, SOL shows no reversal signals yet.",
+    "key_factors": [
+      "price_below_key_emas",
+      "low_volume",
+      "bearish_market_sentiment"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 153.79,
+  "target_time": "2025-11-05T08:47:19.962084+08:00",
+  "evaluated": true,
+  "actual_move": -0.7152610702906524,
+  "actual_high": 155.87,
+  "actual_low": 145.67,
+  "is_correct": true,
+  "accuracy": 0.34060050966221533,
+  "evaluated_time": "2025-11-06T01:58:11.018583+08:00"
+}

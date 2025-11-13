@@ -1,0 +1,301 @@
+{
+  "summary": {
+    "total_decisions": 288,
+    "total_pnl": -9.144289450000002,
+    "total_pnl_pct": -5.6860335144928404,
+    "max_drawdown_pct": 6.223477944547477,
+    "errors": 7,
+    "position_changes": 20
+  },
+  "actions": {
+    "hold": 579,
+    "close_long": 4,
+    "open_short": 9,
+    "open_long": 3,
+    "wait": 11
+  },
+  "predictions": {
+    "directions": {
+      "neutral": 527,
+      "up": 15,
+      "down": 41
+    },
+    "confidences": {
+      "low": 511,
+      "medium": 72
+    },
+    "risks": {
+      "medium": 403,
+      "high": 178,
+      "low": 2
+    },
+    "probabilities": {
+      "avg": 56.03430531732418,
+      "median": 55,
+      "min": 55,
+      "max": 65
+    }
+  },
+  "trades": [
+    {
+      "timestamp": "2025-11-10T13:36:55",
+      "action": "close_long",
+      "symbol": "ETHUSDT",
+      "price": 3593.74,
+      "quantity": 0,
+      "reasoning": "AI预测: neutral (概率55%) | 市场情绪悲观，交易量低，MACD接近零线，RSI低位但缺乏确认信号。"
+    },
+    {
+      "timestamp": "2025-11-10T15:16:40",
+      "action": "close_long",
+      "symbol": "BTCUSDT",
+      "price": 106461.1,
+      "quantity": 0,
+      "reasoning": "AI预测: neutral (概率55%) | 虽然比特币价格呈强上升趋势且MACD正值，但市场情绪偏熊、成交量低且RSI超买，存在回调风险。"
+    },
+    {
+      "timestamp": "2025-11-10T17:02:56",
+      "action": "open_short",
+      "symbol": "BTCUSDT",
+      "price": 105952,
+      "quantity": 0.000754703245762232,
+      "reasoning": "AI预测: down (概率65%, 期望-2.00%) | 市场情绪悲观，交易量低，短期技术指标偏弱。价格低于EMA20和EMA50，MACD为负。"
+    },
+    {
+      "timestamp": "2025-11-10T17:02:56",
+      "action": "open_short",
+      "symbol": "ETHUSDT",
+      "price": 3586.93,
+      "quantity": 0.02643696653670108,
+      "reasoning": "AI预测: down (概率65%, 期望-1.50%) | 市场情绪悲观，交易量低且流动性不足，短期技术指标偏弱。价格低于EMA20和EMA50，MACD为负。"
+    },
+    {
+      "timestamp": "2025-11-10T17:52:30",
+      "action": "open_long",
+      "symbol": "ETHUSDT",
+      "price": 3625.8,
+      "quantity": 0.022035714792597496,
+      "reasoning": "AI预测: up (概率65%, 期望+2.50%) | 强上升趋势，MACD正值增加，突破关键EMA线。但市场情绪偏熊，RSI接近超买。"
+    },
+    {
+      "timestamp": "2025-11-10T18:01:56",
+      "action": "close_long",
+      "symbol": "SOLUSDT",
+      "price": 169.18,
+      "quantity": 0,
+      "reasoning": "AI预测: neutral (概率55%) | 强上升趋势，但市场情绪悲观且成交量显著下降，MACD较低。"
+    },
+    {
+      "timestamp": "2025-11-10T18:06:33",
+      "action": "open_long",
+      "symbol": "SOLUSDT",
+      "price": 0,
+      "quantity": 0,
+      "reasoning": "AI预测: up (概率65%, 期望+2.50%) | 强上涨趋势和MACD正值支持上涨，但低交易量和悲观情绪降低概率。"
+    },
+    {
+      "timestamp": "2025-11-10T18:18:00",
+      "action": "open_short",
+      "symbol": "SOLUSDT",
+      "price": 168.95,
+      "quantity": 0.47271487043504,
+      "reasoning": "AI预测: down (概率65%, 期望-2.50%) | 市场情绪悲观，成交量极低，短期趋势弱。RSI显示超卖但缺乏成交量确认。"
+    },
+    {
+      "timestamp": "2025-11-10T22:41:35",
+      "action": "close_long",
+      "symbol": "ETHUSDT",
+      "price": 3580.48,
+      "quantity": 0,
+      "reasoning": "AI预测: neutral (概率55%) | 市场情绪悲观，交易量低且流动性不足，尽管技术指标显示超卖，但缺乏成交量确认反弹。"
+    },
+    {
+      "timestamp": "2025-11-11T00:01:50",
+      "action": "open_short",
+      "symbol": "ETHUSDT",
+      "price": 3515.38,
+      "quantity": 0.022785521236679956,
+      "reasoning": "AI预测: down (概率65%, 期望-2.50%) | 价格低于EMA20和EMA50，MACD为负，RSI处于超卖区域但未见明显反转信号，市场情绪悲观。"
+    },
+    {
+      "timestamp": "2025-11-11T00:42:50",
+      "action": "open_short",
+      "symbol": "SOLUSDT",
+      "price": 165.62,
+      "quantity": 0.4830619414623838,
+      "reasoning": "AI预测: down (概率65%, 期望-2.50%) | 价格低于EMA20和EMA50，MACD为负，RSI处于低位但未极端，交易量低且市场情绪悲观。"
+    },
+    {
+      "timestamp": "2025-11-11T03:07:43",
+      "action": "open_short",
+      "symbol": "SOLUSDT",
+      "price": 166.17,
+      "quantity": 0.47441210808208467,
+      "reasoning": "AI预测: down (概率65%, 期望-2.50%) | 价格低于EMA20和EMA50，MACD为负，RSI处于超卖区域但成交量极低，市场情绪悲观。"
+    },
+    {
+      "timestamp": "2025-11-11T03:26:27",
+      "action": "open_short",
+      "symbol": "BTCUSDT",
+      "price": 105584.1,
+      "quantity": 0.0007462047845745713,
+      "reasoning": "AI预测: down (概率65%, 期望-2.50%) | 价格低于EMA20和EMA50，MACD为正但接近零线，RSI中性偏弱，成交量极低，市场情绪悲观。"
+    },
+    {
+      "timestamp": "2025-11-11T06:12:47",
+      "action": "open_short",
+      "symbol": "ETHUSDT",
+      "price": 3530.85,
+      "quantity": 0.02445494416981747,
+      "reasoning": "AI预测: down (概率65%, 期望-2.00%) | 价格低于EMA20和EMA50，MACD为负，RSI中性但市场情绪悲观且交易量极低。"
+    },
+    {
+      "timestamp": "2025-11-11T08:47:31",
+      "action": "open_short",
+      "symbol": "ETHUSDT",
+      "price": 3557.55,
+      "quantity": 0.021870021156413826,
+      "reasoning": "AI预测: down (概率65%, 期望-2.50%) | 价格低于EMA20和EMA50，MACD为负，RSI处于中性区域，市场情绪悲观且交易量极低。"
+    },
+    {
+      "timestamp": "2025-11-11T09:26:01",
+      "action": "open_long",
+      "symbol": "BTCUSDT",
+      "price": 106967.4,
+      "quantity": 0.0007089818608753696,
+      "reasoning": "AI预测: up (概率65%, 期望+2.50%) | 强上升趋势，MACD正值增加，突破关键EMA线，但需警惕交易量下降和市场情绪偏熊。"
+    }
+  ],
+  "position_changes": [
+    {
+      "timestamp": "2025-11-10T13:41:53",
+      "symbol": "ETHUSDT",
+      "from": "long",
+      "to": "none"
+    },
+    {
+      "timestamp": "2025-11-10T15:21:29",
+      "symbol": "BTCUSDT",
+      "from": "long",
+      "to": "none"
+    },
+    {
+      "timestamp": "2025-11-10T17:06:34",
+      "symbol": "BTCUSDT",
+      "from": "none",
+      "to": "short"
+    },
+    {
+      "timestamp": "2025-11-10T17:06:34",
+      "symbol": "ETHUSDT",
+      "from": "none",
+      "to": "short"
+    },
+    {
+      "timestamp": "2025-11-10T17:36:15",
+      "symbol": "ETHUSDT",
+      "from": "short",
+      "to": "none"
+    },
+    {
+      "timestamp": "2025-11-10T17:56:46",
+      "symbol": "ETHUSDT",
+      "from": "none",
+      "to": "long"
+    },
+    {
+      "timestamp": "2025-11-10T18:06:33",
+      "symbol": "SOLUSDT",
+      "from": "long",
+      "to": "none"
+    },
+    {
+      "timestamp": "2025-11-10T18:21:38",
+      "symbol": "SOLUSDT",
+      "from": "none",
+      "to": "short"
+    },
+    {
+      "timestamp": "2025-11-10T21:06:43",
+      "symbol": "SOLUSDT",
+      "from": "short",
+      "to": "none"
+    },
+    {
+      "timestamp": "2025-11-10T22:46:40",
+      "symbol": "ETHUSDT",
+      "from": "long",
+      "to": "none"
+    },
+    {
+      "timestamp": "2025-11-11T00:06:44",
+      "symbol": "ETHUSDT",
+      "from": "none",
+      "to": "short"
+    },
+    {
+      "timestamp": "2025-11-11T00:47:27",
+      "symbol": "SOLUSDT",
+      "from": "none",
+      "to": "short"
+    },
+    {
+      "timestamp": "2025-11-11T01:41:30",
+      "symbol": "SOLUSDT",
+      "from": "short",
+      "to": "none"
+    },
+    {
+      "timestamp": "2025-11-11T01:51:22",
+      "symbol": "BTCUSDT",
+      "from": "short",
+      "to": "none"
+    },
+    {
+      "timestamp": "2025-11-11T03:11:24",
+      "symbol": "SOLUSDT",
+      "from": "none",
+      "to": "short"
+    },
+    {
+      "timestamp": "2025-11-11T03:31:18",
+      "symbol": "BTCUSDT",
+      "from": "none",
+      "to": "short"
+    },
+    {
+      "timestamp": "2025-11-11T03:46:40",
+      "symbol": "ETHUSDT",
+      "from": "short",
+      "to": "none"
+    },
+    {
+      "timestamp": "2025-11-11T06:18:13",
+      "symbol": "ETHUSDT",
+      "from": "none",
+      "to": "short"
+    },
+    {
+      "timestamp": "2025-11-11T07:01:49",
+      "symbol": "ETHUSDT",
+      "from": "short",
+      "to": "none"
+    },
+    {
+      "timestamp": "2025-11-11T08:52:34",
+      "symbol": "ETHUSDT",
+      "from": "none",
+      "to": "short"
+    }
+  ],
+  "intervals": {
+    "avg": 299.81881533101046,
+    "min": 195.0,
+    "max": 398.0
+  },
+  "errors": 7,
+  "warnings": 0,
+  "api_errors": {
+    "rate_limit": 7
+  }
+}

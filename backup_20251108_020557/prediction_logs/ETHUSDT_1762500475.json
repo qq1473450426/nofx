@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762500475",
+  "timestamp": "2025-11-07T15:27:55.57154+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.7739251006567907,
+    "expected_move": 18.5,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格已接近关键支撑位EMA200，且RSI进入超卖区域，短期下行动能减弱。尽管短期趋势偏弱且情绪悲观，但波动率处于低位叠加成交量萎缩，暗示变盘可能临近。账户层面Sharpe比为负，需下调预测置信度约5%，但历史准确率反馈尚可，支持适度乐观反弹预测。综合判断反弹概率较高，但空间受限。",
+    "key_factors": [
+      "接近EMA200支撑",
+      "超卖信号初现",
+      "波动率压缩待突破"
+    ],
+    "risk_level": "medium",
+    "worst_case": -12.3,
+    "best_case": 28.7
+  },
+  "entry_price": 3343.45,
+  "target_time": "2025-11-07T19:27:55.571539+08:00",
+  "evaluated": true,
+  "actual_move": -3.4978839222958267,
+  "actual_high": 3359.29,
+  "actual_low": 3224.05,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:07.220463+08:00"
+}

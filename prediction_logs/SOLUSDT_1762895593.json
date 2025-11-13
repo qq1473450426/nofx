@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762895593",
+  "timestamp": "2025-11-12T05:13:13.069564+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "RSI处于中性水平，MACD接近零线，低波动率可能反弹。尽管市场情绪悲观，但技术指标显示短期内可能出现反弹。",
+    "key_factors": [
+      "RSI中性",
+      "MACD接近零线",
+      "低波动率"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 157.1,
+  "target_time": "2025-11-13T05:13:13.069563+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

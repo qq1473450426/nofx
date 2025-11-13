@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762462154",
+  "timestamp": "2025-11-07T04:49:14.524288+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 2.35,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "市场技术分析显示价格处于强烈下行趋势，但RSI7已进入19的超卖区域，暗示短期反弹可能。尽管均线空头排列且MACD为负，但成交量萎缩表明抛压减弱，波动率收缩后可能出现方向性突破。结合账户风险环境（Sharpe比率为负），适度降低预测概率，但仍基于超卖信号与情绪极端判断存在反弹机会。历史准确率偏低（13.4%）提醒需谨慎，但当前信号强度支持适度高信心反弹预测。",
+    "key_factors": [
+      "超卖RSI触发反弹",
+      "成交量萎缩暗示抛压枯竭",
+      "波动率压缩后突破"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.87,
+    "best_case": 5.12
+  },
+  "entry_price": 154.8,
+  "target_time": "2025-11-07T08:49:14.524287+08:00",
+  "evaluated": true,
+  "actual_move": 1.3113695090439283,
+  "actual_high": 157.06,
+  "actual_low": 153.34,
+  "is_correct": true,
+  "accuracy": 0.5580295783165652,
+  "evaluated_time": "2025-11-07T23:23:11.441222+08:00"
+}

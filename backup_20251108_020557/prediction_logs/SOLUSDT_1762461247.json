@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762461247",
+  "timestamp": "2025-11-07T04:34:07.257484+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示SOL处于强劲下跌趋势，价格低于所有关键均线，RSI进入超卖区（26.04）并出现潜在反弹信号。尽管市场整体情绪悲观且动能偏弱，但短期超卖可能引发技术性反弹。账户风险方面，系统夏普比率为负（-0.09），需适度下调预测信心，但不影响对反弹机会的判断。历史准确率偏低（13.4%）提醒谨慎，但当前波动率收缩后突破可能性增加，结合恐慌情绪下的抄底时机，支持短期内向上修正。",
+    "key_factors": [
+      "超卖反弹信号",
+      "波动率收缩突破",
+      "恐慌情绪修复"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.2,
+    "best_case": 3.5
+  },
+  "entry_price": 155.8,
+  "target_time": "2025-11-07T08:34:07.257484+08:00",
+  "evaluated": true,
+  "actual_move": 0.5006418485237492,
+  "actual_high": 156.86,
+  "actual_low": 153.34,
+  "is_correct": true,
+  "accuracy": 0.2706172154182428,
+  "evaluated_time": "2025-11-07T23:23:11.076013+08:00"
+}

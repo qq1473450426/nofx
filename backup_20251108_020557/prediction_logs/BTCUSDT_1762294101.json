@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762294101",
+  "timestamp": "2025-11-05T06:08:21.765209+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "down",
+    "probability": 0.85,
+    "expected_move": -2.1,
+    "timeframe": "24h",
+    "confidence": "very_high",
+    "reasoning": "Price remains below all key EMAs with strong bearish momentum, despite short-term RSI overbought signal. Volume rise without price follow-through indicates lack of buying conviction. Market structure favors continued downside.",
+    "key_factors": [
+      "price_below_key_emas",
+      "rsi_price_divergence",
+      "high_volume_without_momentum"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 0.8
+  },
+  "entry_price": 100729.5,
+  "target_time": "2025-11-06T06:08:21.765209+08:00",
+  "evaluated": true,
+  "actual_move": 2.6654555021120867,
+  "actual_high": 104497.6,
+  "actual_low": 98909.7,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:37.30547+08:00"
+}

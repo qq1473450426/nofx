@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762303103",
+  "timestamp": "2025-11-05T08:38:23.586572+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -2.4,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs with strong bearish momentum. Low volume suggests lack of buying interest, while RSI near oversold levels indicates limited downside acceleration. Funding rate slightly positive but not enough to counter broader market panic.",
+    "key_factors": [
+      "price_below_all_EMAs",
+      "low_volume",
+      "extreme_fear_sentiment"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 153.49,
+  "target_time": "2025-11-05T12:38:23.586571+08:00",
+  "evaluated": true,
+  "actual_move": 2.18906769170629,
+  "actual_high": 157.43,
+  "actual_low": 147.2,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:58:14.141185+08:00"
+}

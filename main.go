@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"nofx/api"
 	"nofx/config"
@@ -9,11 +10,19 @@ import (
 	"nofx/pool"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 )
 
 func main() {
+	logFile, err := initLogger()
+	if err != nil {
+		fmt.Printf("❌ 初始化日志失败: %v\n", err)
+		return
+	}
+	defer logFile.Close()
+
 	fmt.Println("╔════════════════════════════════════════════════════════════╗")
 	fmt.Println("║    🏆 AI模型交易竞赛系统 - Qwen vs DeepSeek               ║")
 	fmt.Println("╚════════════════════════════════════════════════════════════╝")
@@ -136,4 +145,24 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("👋 感谢使用AI交易竞赛系统！")
+}
+
+func initLogger() (*os.File, error) {
+	logDir := "logs"
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建日志目录失败: %w", err)
+	}
+
+	logPath := filepath.Join(logDir, "nofx.log")
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("打开日志文件失败: %w", err)
+	}
+
+	multiWriter := io.MultiWriter(os.Stdout, file)
+	log.SetOutput(multiWriter)
+	log.SetFlags(log.LstdFlags)
+	log.Printf("📄 日志输出到: %s", logPath)
+
+	return file, nil
 }

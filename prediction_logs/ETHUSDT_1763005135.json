@@ -1,0 +1,32 @@
+{
+  "id": "ETHUSDT_1763005135",
+  "timestamp": "2025-11-13T11:38:55.939837+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.75,
+    "expected_move": -2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "当前市场情绪谨慎且偏向恐惧，MACD仍处于死叉状态，价格低于EMA20和EMA50，成交量低。这些因素表明短期内市场可能继续下跌。",
+    "key_factors": [
+      "MACD死叉",
+      "价格低于EMA20和EMA50",
+      "低成交量",
+      "市场情绪偏熊"
+    ],
+    "risk_level": "medium",
+    "worst_case": 5,
+    "best_case": -10
+  },
+  "entry_price": 3453.89,
+  "target_time": "2025-11-14T11:38:55.939835+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

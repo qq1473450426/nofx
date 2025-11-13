@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762503594",
+  "timestamp": "2025-11-07T16:19:54.89544+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.7643221960407962,
+    "expected_move": 520,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "当前价格处于下行趋势，均线空头排列且RSI接近超卖，短期技术指标显示下跌动能减弱。尽管市场情绪偏熊，但成交量萎缩与波动率下降暗示抛压趋缓，存在技术性反弹可能。账户保证金使用率低且净值回撤可控，结合负Sharpe比适当下调预测概率，但仍支持顺势短线反弹操作。历史准确率偏低提醒需谨慎入场，但短期信号指向明确修复需求。",
+    "key_factors": [
+      "超卖区域反弹潜力",
+      "量缩价稳结构",
+      "MACD趋平信号"
+    ],
+    "risk_level": "medium",
+    "worst_case": -310,
+    "best_case": 850
+  },
+  "entry_price": 101828,
+  "target_time": "2025-11-07T20:19:54.895439+08:00",
+  "evaluated": true,
+  "actual_move": -1.7064068821935083,
+  "actual_high": 101854.2,
+  "actual_low": 99750,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:53.346394+08:00"
+}

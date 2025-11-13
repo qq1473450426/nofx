@@ -1,0 +1,31 @@
+{
+  "id": "ADAUSDT_1762323091",
+  "timestamp": "2025-11-05T14:11:31.046411+08:00",
+  "symbol": "ADAUSDT",
+  "prediction": {
+    "symbol": "ADAUSDT",
+    "direction": "down",
+    "probability": 0.72,
+    "expected_move": -2.8,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs with strong bearish momentum. MACD near zero but RSI not yet oversold, leaving room for further downside. Low volume suggests weak buying interest, though extreme fear may limit downside.",
+    "key_factors": [
+      "price_below_key_EMAs",
+      "low_volume",
+      "bearish_market_sentiment"
+    ],
+    "risk_level": "high",
+    "worst_case": -5,
+    "best_case": 1.2
+  },
+  "entry_price": 0.5327,
+  "target_time": "2025-11-05T18:11:31.046411+08:00",
+  "evaluated": true,
+  "actual_move": -0.732119391777718,
+  "actual_high": 0.5356,
+  "actual_low": 0.5228,
+  "is_correct": true,
+  "accuracy": 0.26147121134918494,
+  "evaluated_time": "2025-11-06T01:57:49.48557+08:00"
+}

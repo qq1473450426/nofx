@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762469642",
+  "timestamp": "2025-11-07T06:54:02.108935+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.74,
+    "expected_move": -1.85,
+    "timeframe": "4h",
+    "confidence": "medium",
+    "reasoning": "技术面显示价格处于强烈下行趋势，低于所有关键均线，且MACD呈现死叉看跌信号。尽管RSI接近中性区域，但成交量萎缩表明反弹动力不足。账户层面夏普比率极低，历史胜率仅45.3%，需下调预测信心。综合判断短期仍有下行空间，但波动率较高需警惕反向波动。",
+    "key_factors": [
+      "强烈下行趋势",
+      "MACD死叉",
+      "成交量萎缩"
+    ],
+    "risk_level": "medium",
+    "worst_case": -3.2,
+    "best_case": 0.9
+  },
+  "entry_price": 155.29,
+  "target_time": "2025-11-07T10:54:02.108934+08:00",
+  "evaluated": true,
+  "actual_move": 1.5261768304462648,
+  "actual_high": 157.73,
+  "actual_low": 153.34,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:14.365407+08:00"
+}

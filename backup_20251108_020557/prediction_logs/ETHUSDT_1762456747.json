@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762456747",
+  "timestamp": "2025-11-07T03:19:07.826612+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示RSI进入中性区域且MACD出现金叉，短期价格动能转为上涨。尽管整体趋势仍处下行，但成交量放大且4小时级别呈现企稳迹象。结合账户Sharpe比率为负，适度下调预测信心，但近期预测准确率较高，增强对信号的信任。历史表现显示在类似波动环境下存在反弹机会，因此判断向上概率较高。",
+    "key_factors": [
+      "MACD金叉信号",
+      "RSI回归中性",
+      "量能显著放大"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.2,
+    "best_case": 3.5
+  },
+  "entry_price": 3332.4,
+  "target_time": "2025-11-07T07:19:07.826612+08:00",
+  "evaluated": true,
+  "actual_move": -1.003781058696443,
+  "actual_high": 3341.19,
+  "actual_low": 3285.97,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:54.443339+08:00"
+}

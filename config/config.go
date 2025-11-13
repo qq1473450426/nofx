@@ -9,18 +9,19 @@ import (
 
 // TraderConfig 单个trader的配置
 type TraderConfig struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Enabled bool   `json:"enabled"` // 是否启用该trader
-	AIModel string `json:"ai_model"` // "qwen" or "deepseek"
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Enabled   bool   `json:"enabled"`              // 是否启用该trader
+	AIModel   string `json:"ai_model"`             // "qwen" or "deepseek"
+	QwenModel string `json:"qwen_model,omitempty"` // 具体Qwen模型（如qwen-plus/qwen-max）
 
 	// 交易平台选择（二选一）
 	Exchange string `json:"exchange"` // "binance" or "hyperliquid"
 
 	// 币安配置
-	BinanceAPIKey       string `json:"binance_api_key,omitempty"`
-	BinanceSecretKey    string `json:"binance_secret_key,omitempty"`
-	BinanceTestnet      bool   `json:"binance_testnet,omitempty"` // 是否使用币安测试网
+	BinanceAPIKey    string `json:"binance_api_key,omitempty"`
+	BinanceSecretKey string `json:"binance_secret_key,omitempty"`
+	BinanceTestnet   bool   `json:"binance_testnet,omitempty"` // 是否使用币安测试网
 
 	// Hyperliquid配置
 	HyperliquidPrivateKey string `json:"hyperliquid_private_key,omitempty"`
@@ -150,8 +151,21 @@ func (c *Config) Validate() error {
 			}
 		}
 
-		if c.Traders[i].AIModel == "qwen" && c.Traders[i].QwenKey == "" {
-			return fmt.Errorf("trader[%d]: 使用Qwen时必须配置qwen_key", i)
+		if c.Traders[i].AIModel == "qwen" {
+			if c.Traders[i].QwenKey == "" {
+				return fmt.Errorf("trader[%d]: 使用Qwen时必须配置qwen_key", i)
+			}
+			if c.Traders[i].QwenModel == "" {
+				c.Traders[i].QwenModel = "qwen-plus"
+			}
+			allowedQwenModels := map[string]bool{
+				"qwen-turbo": true,
+				"qwen-plus":  true,
+				"qwen-max":   true,
+			}
+			if !allowedQwenModels[c.Traders[i].QwenModel] {
+				return fmt.Errorf("trader[%d]: qwen_model必须是 'qwen-turbo','qwen-plus' 或 'qwen-max'", i)
+			}
 		}
 		if c.Traders[i].AIModel == "deepseek" && c.Traders[i].DeepSeekKey == "" {
 			return fmt.Errorf("trader[%d]: 使用DeepSeek时必须配置deepseek_key", i)

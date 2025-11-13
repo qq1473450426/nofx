@@ -1,0 +1,32 @@
+{
+  "id": "SOLUSDT_1762889626",
+  "timestamp": "2025-11-12T03:33:46.774792+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.65,
+    "expected_move": -1.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "Price below EMA20 and EMA50, MACD negative, low volume, neutral RSI. Trend is down, but low volume suggests cautious move.",
+    "key_factors": [
+      "price\u003cEMA20",
+      "price\u003cEMA50",
+      "MACD\u003c0",
+      "volume_vs_avg\u003c-50%"
+    ],
+    "risk_level": "medium",
+    "worst_case": -3.5,
+    "best_case": 0.8997389852560689
+  },
+  "entry_price": 158.55,
+  "target_time": "2025-11-13T03:33:46.774791+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

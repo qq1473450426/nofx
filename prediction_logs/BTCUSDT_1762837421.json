@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762837421",
+  "timestamp": "2025-11-11T13:03:41.99669+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "RSI is extremely oversold, suggesting a short-term bounce. Trend is still down, but RSI \u003c 20 is a strong signal.",
+    "key_factors": [
+      "RSI \u003c 20",
+      "price \u003c EMA20",
+      "MACD \u003c 0"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 105696.3,
+  "target_time": "2025-11-12T13:03:41.996689+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762936276",
+  "timestamp": "2025-11-12T16:31:16.659432+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.7,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "Price above EMAs, MACD bullish, OI increasing, but RSI and social sentiment cautious.",
+    "key_factors": [
+      "price\u003eEMA20\u003eEMA50",
+      "MACD\u003ems",
+      "OI increasing"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 156.4,
+  "target_time": "2025-11-13T16:31:16.659431+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

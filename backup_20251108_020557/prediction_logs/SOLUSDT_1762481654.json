@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762481654",
+  "timestamp": "2025-11-07T10:14:14.298963+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示SOL价格虽处于长期下行趋势，但短期RSI接近超买区域且MACD维持金叉，叠加1小时和4小时级别均呈现上涨动能。市场交易量偏低表明突破力度有限，但多头信号仍占优。账户夏普比率为负，系统整体表现偏弱，需下调预测置信度。历史胜率仅45.3%，因此在强势信号下仍保留一定谨慎，避免高估反弹持续性。",
+    "key_factors": [
+      "短期多头动能增强",
+      "MACD金叉维持",
+      "交易量萎缩限制涨幅"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.2,
+    "best_case": 3.5
+  },
+  "entry_price": 157.04,
+  "target_time": "2025-11-07T14:14:14.298962+08:00",
+  "evaluated": true,
+  "actual_move": 0.47758532857870606,
+  "actual_high": 158.52,
+  "actual_low": 155.18,
+  "is_correct": true,
+  "accuracy": 0.2581542316641654,
+  "evaluated_time": "2025-11-07T23:23:19.466835+08:00"
+}

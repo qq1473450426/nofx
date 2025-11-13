@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762501497",
+  "timestamp": "2025-11-07T15:44:57.834885+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.7547210908255555,
+    "expected_move": -45.23,
+    "timeframe": "24h",
+    "confidence": "high",
+    "reasoning": "技术面显示ETH处于显著下行趋势，价格低于所有关键均线，MACD死叉且波动率中等，短期反弹动能不足。尽管RSI接近中性，但市场整体情绪极度恐惧且BTC持续下行，压制ETH表现。账户风险偏低，保证金使用安全，但系统夏普比为负，需适度下调预测信心。历史胜率偏低情况下，仍维持看跌判断因趋势信号明确。",
+    "key_factors": [
+      "均线空头排列",
+      "MACD死叉压力",
+      "市场情绪极度恐惧"
+    ],
+    "risk_level": "medium",
+    "worst_case": -80.5,
+    "best_case": 15
+  },
+  "entry_price": 3345.02,
+  "target_time": "2025-11-08T15:44:57.834884+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

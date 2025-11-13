@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -35,7 +36,7 @@ func New() *Client {
 	var defaultClient = Client{
 		Provider: ProviderDeepSeek,
 		BaseURL:  "https://api.deepseek.com/v1",
-		Model:    "deepseek-chat",
+		Model:    "deepseek-reasoner", // DeepSeek R1 推理模型
 		Timeout:  240 * time.Second, // 增加到240秒，DeepSeek在高峰期可能响应较慢
 	}
 	return &defaultClient
@@ -46,7 +47,7 @@ func (cfg *Client) SetDeepSeekAPIKey(apiKey string) {
 	cfg.Provider = ProviderDeepSeek
 	cfg.APIKey = apiKey
 	cfg.BaseURL = "https://api.deepseek.com/v1"
-	cfg.Model = "deepseek-chat"
+	cfg.Model = "deepseek-reasoner" // DeepSeek R1 推理模型
 }
 
 // SetQwenAPIKey 设置阿里云Qwen API密钥
@@ -210,11 +211,12 @@ func (cfg *Client) callOnce(systemPrompt, userPrompt string) (string, error) {
 		return "", fmt.Errorf("API返回错误 (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	// 解析响应
+	// 解析响应 (支持 DeepSeek R1 的 reasoning_content)
 	var result struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Content          string `json:"content"`
+				ReasoningContent string `json:"reasoning_content"` // DeepSeek R1 推理过程
 			} `json:"message"`
 		} `json:"choices"`
 	}
@@ -229,7 +231,23 @@ func (cfg *Client) callOnce(systemPrompt, userPrompt string) (string, error) {
 
 	elapsed := time.Since(startTime)
 	fmt.Printf("✅ AI响应成功 (耗时%.1fs)\n", elapsed.Seconds())
-	return result.Choices[0].Message.Content, nil
+
+	// DeepSeek R1: 如果有 reasoning_content，将其附加到 content 之前
+	// 这样系统可以看到推理过程（虽然我们主要使用 content 中的最终答案）
+	content := result.Choices[0].Message.Content
+	reasoningContent := result.Choices[0].Message.ReasoningContent
+
+	// 🔧 修复：如果content为空但reasoning_content有内容，使用reasoning_content
+	if content == "" && reasoningContent != "" {
+		content = reasoningContent
+		log.Printf("🔍 DeepSeek R1: content为空，使用reasoning_content (长度:%d)", len(reasoningContent))
+	} else if reasoningContent != "" {
+		// DeepSeek R1 模型：只返回 content（最终答案），忽略推理过程以节省token
+		// 如果需要看推理过程，可以取消下面的注释
+		// content = "## 推理过程\n" + reasoningContent + "\n\n## 最终答案\n" + content
+	}
+
+	return content, nil
 }
 
 // isRetryableError 判断错误是否可重试

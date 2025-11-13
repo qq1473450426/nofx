@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762312579",
+  "timestamp": "2025-11-05T11:16:19.057618+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -2.3,
+    "timeframe": "24h",
+    "confidence": "high",
+    "reasoning": "Despite short-term bullish signals like positive MACD and RSI near neutral zone, the broader trend remains bearish with strong distribution dynamics. Price is below all key EMAs, volume surge aligns with down-move pressure, and market sentiment reflects fear, limiting upside potential. Technical resistance at EMA20 likely to cap rebounds.",
+    "key_factors": [
+      "bearish_ema_alignment",
+      "high_volume_on_down_move",
+      "extreme_market_fear"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 3315.27,
+  "target_time": "2025-11-06T11:16:19.057618+08:00",
+  "evaluated": true,
+  "actual_move": 3.9529208782391834,
+  "actual_high": 3479,
+  "actual_low": 3272.24,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:53.71447+08:00"
+}

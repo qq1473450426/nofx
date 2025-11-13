@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762893595",
+  "timestamp": "2025-11-12T04:39:55.147128+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.65,
+    "expected_move": -2,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "Downtrend confirmed by price \u003c EMA20 \u003c EMA50 and MACD \u003c 0. RSI is oversold, suggesting a potential short-term bounce, but overall trend remains bearish.",
+    "key_factors": [
+      "price \u003c EMA20 \u003c EMA50",
+      "MACD \u003c 0",
+      "RSI oversold"
+    ],
+    "risk_level": "medium",
+    "worst_case": -5,
+    "best_case": 1
+  },
+  "entry_price": 3436.07,
+  "target_time": "2025-11-13T04:39:55.147128+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

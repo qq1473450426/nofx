@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762931074",
+  "timestamp": "2025-11-12T15:04:34.025063+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "RSI is low, suggesting a potential rebound. MACD is positive, indicating upward momentum. Despite bearish sentiment, technicals show a likely bounce.",
+    "key_factors": [
+      "r14",
+      "m",
+      "ms"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 3439.04,
+  "target_time": "2025-11-13T15:04:34.025062+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

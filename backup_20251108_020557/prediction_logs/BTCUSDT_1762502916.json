@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762502916",
+  "timestamp": "2025-11-07T16:08:36.91409+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.7559203636594383,
+    "expected_move": 85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "价格位于EMA20和EMA50上方，短期趋势偏强，MACD虽为死叉但波动率处于低位，暗示调整接近尾声。市场情绪偏空但未恐慌，结合低成交量震荡，预示方向选择即将展开。账户保证金使用率低且持仓空间充足，Sharpe比率为负但不影响技术信号判断，历史胜率偏低但当前形态支持突破上行。",
+    "key_factors": [
+      "价格贴近关键均线支撑",
+      "低波动收敛待突破",
+      "短期多头结构未破"
+    ],
+    "risk_level": "medium",
+    "worst_case": -62,
+    "best_case": 150
+  },
+  "entry_price": 101935.8,
+  "target_time": "2025-11-07T20:08:36.91409+08:00",
+  "evaluated": true,
+  "actual_move": -1.4011760343274913,
+  "actual_high": 101935.8,
+  "actual_low": 99750,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:52.80851+08:00"
+}

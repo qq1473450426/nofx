@@ -1,0 +1,34 @@
+{
+  "id": "ETHUSDT_1762963400",
+  "timestamp": "2025-11-13T00:03:20.396189+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.7,
+    "expected_move": -2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "RSI14 indicates oversold, but MACD bearish, EMA20 \u003c EMA50, and bearish sentiment.",
+    "key_factors": [
+      "m",
+      "ms",
+      "e20",
+      "e50",
+      "r14",
+      "social"
+    ],
+    "risk_level": "medium",
+    "worst_case": -5,
+    "best_case": 1.6752962212185727
+  },
+  "entry_price": 3423.94,
+  "target_time": "2025-11-14T00:03:20.396188+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

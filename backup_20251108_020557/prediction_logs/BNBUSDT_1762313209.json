@@ -1,0 +1,31 @@
+{
+  "id": "BNBUSDT_1762313209",
+  "timestamp": "2025-11-05T11:26:49.839311+08:00",
+  "symbol": "BNBUSDT",
+  "prediction": {
+    "symbol": "BNBUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -2.8,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs in a confirmed downtrend, with RSI near overbought territory despite lack of upward momentum, indicating weak bullish conviction. High volume on minimal price gain suggests distribution. Market-wide panic and bearish sentiment increase downside risk despite short-term MACD positivity.",
+    "key_factors": [
+      "EMA_20_50_200_bearish_alignment",
+      "RSI_overbought_without_breakout",
+      "market_wide_panic_sentiment"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 951.75,
+  "target_time": "2025-11-05T15:26:49.839311+08:00",
+  "evaluated": true,
+  "actual_move": -0.6629892303651111,
+  "actual_high": 954.6,
+  "actual_low": 941.11,
+  "is_correct": true,
+  "accuracy": 0.23678186798753964,
+  "evaluated_time": "2025-11-06T01:57:49.671148+08:00"
+}

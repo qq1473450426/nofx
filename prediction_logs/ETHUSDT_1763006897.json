@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1763006897",
+  "timestamp": "2025-11-13T12:08:17.897435+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.7,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "价格在EMA20和EMA50上方，MACD金叉且上升，RSI处于中性区域。尽管市场情绪悲观，但技术指标一致支持上涨。未平仓合约小幅增加，显示市场有一定动能。",
+    "key_factors": [
+      "价格\u003eEMA20\u003eEMA50",
+      "MACD金叉且上升",
+      "RSI中性"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 3436.27,
+  "target_time": "2025-11-14T12:08:17.897434+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

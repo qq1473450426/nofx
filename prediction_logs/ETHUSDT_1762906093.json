@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762906093",
+  "timestamp": "2025-11-12T08:08:13.710287+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "长期趋势向上，积累阶段可能买入机会，恐惧贪婪指数低位，但成交量低需谨慎。",
+    "key_factors": [
+      "长期趋势向上",
+      "积累阶段买入机会",
+      "恐惧贪婪指数低位"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 3430.47,
+  "target_time": "2025-11-13T08:08:13.710286+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

@@ -1,0 +1,32 @@
+{
+  "id": "SOLUSDT_1762975098",
+  "timestamp": "2025-11-13T03:18:18.043884+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.75,
+    "expected_move": -3,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "强下行趋势，MACD和RSI均显示熊市信号，市场情绪悲观。",
+    "key_factors": [
+      "m\u003cms",
+      "r7\u003c30",
+      "e20\u003ce50",
+      "fgi\u003c25"
+    ],
+    "risk_level": "medium",
+    "worst_case": 1.3050180294486065,
+    "best_case": -5
+  },
+  "entry_price": 151.94,
+  "target_time": "2025-11-14T03:18:18.043884+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

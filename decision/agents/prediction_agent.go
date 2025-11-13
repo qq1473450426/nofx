@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
-	"nofx/decision/tracker"
 	"nofx/decision/types"
 	"nofx/market"
 	"nofx/mcp"
@@ -31,15 +29,21 @@ func NewPredictionAgent(mcpClient *mcp.Client) *PredictionAgent {
 type PredictionContext struct {
 	Intelligence   *MarketIntelligence
 	MarketData     *market.Data
-	ExtendedData   *market.ExtendedData
+	ExtendedData   *market.ExtendedData         // 🆕 扩展市场数据（情绪/清算/OI变化）
 	HistoricalPerf *types.HistoricalPerformance // 历史预测表现
-	SharpeRatio    float64                      // 系统近期夏普比率
-	Account        *AccountInfo                 // 账户信息（新增）
-	Positions      []PositionInfoInput          // 当前持仓列表（新增）
+	SharpeRatio    float64                      // 系统近期夏普（用于概率校准）
+	Account        *AccountInfo                 // 账户上下文
+	Positions      []PositionInfoInput          // 当前持仓列表
+	RecentFeedback string                       // tracker生成的近期反馈
+	TraderMemory   string                       // 🧠 交易员记忆（实际交易经验）
 }
 
 // Predict 预测币种未来走势
 func (agent *PredictionAgent) Predict(ctx *PredictionContext) (*types.Prediction, error) {
+	if err := agent.validateMarketData(ctx); err != nil {
+		return nil, fmt.Errorf("数据验证失败: %w", err)
+	}
+
 	systemPrompt, userPrompt := agent.buildPredictionPrompt(ctx)
 
 	response, err := agent.mcpClient.CallWithMessages(systemPrompt, userPrompt)
@@ -51,6 +55,9 @@ func (agent *PredictionAgent) Predict(ctx *PredictionContext) (*types.Prediction
 	prediction := &types.Prediction{}
 	jsonData := extractJSON(response)
 	if jsonData == "" {
+		// 打印原始响应以调试DeepSeek R1
+		log.Printf("⚠️  无法提取JSON，原始响应前800字符:\n%s", truncateString(response, 800))
+		log.Printf("⚠️  原始响应长度: %d字符", len(response))
 		return nil, fmt.Errorf("无法从响应中提取JSON")
 	}
 
@@ -61,18 +68,40 @@ func (agent *PredictionAgent) Predict(ctx *PredictionContext) (*types.Prediction
 	}
 
 	normalizePrediction(prediction)
-
-	// 🔧 反"卡线"机制：检测并打破固定概率模式
-	applyAntiAnchoringBias(prediction)
-
-	adjustConfidenceByProbability(prediction)
+	agent.calibrateProbability(prediction, ctx)
+	if prediction.Timeframe == "" {
+		prediction.Timeframe = agent.selectTimeframe(ctx.MarketData)
+	}
 
 	// 验证预测结果
 	if err := agent.validatePrediction(prediction); err != nil {
 		return nil, fmt.Errorf("预测验证失败: %w", err)
 	}
+	if err := agent.validatePredictionEnhanced(prediction, ctx.MarketData); err != nil {
+		return nil, fmt.Errorf("预测验证失败: %w", err)
+	}
 
 	return prediction, nil
+}
+
+// PredictWithRetry 对AI预测增加重试机制，提高稳定性
+func (agent *PredictionAgent) PredictWithRetry(ctx *PredictionContext, maxRetries int) (*types.Prediction, error) {
+	if maxRetries <= 0 {
+		maxRetries = 1
+	}
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		prediction, err := agent.Predict(ctx)
+		if err == nil {
+			return prediction, nil
+		}
+		lastErr = err
+		log.Printf("⚠️  AI预测失败(第%d次尝试/%d): %v", attempt, maxRetries, err)
+		if attempt < maxRetries {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+	}
+	return nil, fmt.Errorf("AI预测多次失败: %w", lastErr)
 }
 
 func normalizePrediction(pred *types.Prediction) {
@@ -129,375 +158,297 @@ func normalizeEnum(value string, mapping map[string]string) string {
 	return value
 }
 
-func adjustConfidenceByProbability(pred *types.Prediction) {
-	original := pred.Confidence
-	prob := pred.Probability
-	var mapped string
-
-	// 🔧 优化后的阈值：更容易获得high置信度
-	switch {
-	case prob >= 0.85:
-		mapped = "very_high"
-	case prob >= 0.75:
-		mapped = "high"
-	case prob >= 0.65:
-		mapped = "medium"
-	case prob >= 0.55:
-		mapped = "low"
-	default:
-		mapped = "very_low"
-	}
-
-	if pred.Direction == "neutral" && prob > 0.65 {
-		mapped = "medium"
-	}
-
-	if original != mapped {
-		log.Printf("🔄 置信度映射: probability=%.2f, %s → %s", prob, original, mapped)
-	}
-
-	pred.Confidence = mapped
-}
-
-// applyAntiAnchoringBias 反"卡线"机制：打破AI的固定概率模式
-func applyAntiAnchoringBias(pred *types.Prediction) {
-	// 初始化随机数生成器（使用当前时间）
-	rand.Seed(time.Now().UnixNano())
-
-	// 检测"可疑的安全值"
-	suspiciousValues := []float64{0.70, 0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.80}
-
-	isSuspicious := false
-	for _, sv := range suspiciousValues {
-		if math.Abs(pred.Probability-sv) < 0.001 {
-			isSuspicious = true
-			break
-		}
-	}
-
-	if isSuspicious {
-		// 添加小幅随机扰动（±3%）
-		perturbation := (rand.Float64() - 0.5) * 0.06 // -0.03 到 +0.03
-		originalProb := pred.Probability
-		pred.Probability += perturbation
-
-		// 确保在合理范围内
-		if pred.Probability < 0.50 {
-			pred.Probability = 0.50
-		}
-		if pred.Probability > 0.95 {
-			pred.Probability = 0.95
-		}
-
-		log.Printf("🎲 检测到可疑固定值%.2f，应用随机扰动%.3f → 新概率%.2f",
-			originalProb, perturbation, pred.Probability)
-	}
-}
-
-// buildPredictionPrompt 构建预测Prompt（优化版）
+// buildPredictionPrompt 构建预测Prompt（中文版 + 动态教训）
 func (agent *PredictionAgent) buildPredictionPrompt(ctx *PredictionContext) (systemPrompt string, userPrompt string) {
-	systemPrompt = `Role: crypto price forecaster with risk awareness. Output ONLY compact JSON (no markdown) with fields:
-{"symbol":"","direction":"","probability":0.00,"expected_move":0.00,"timeframe":"","confidence":"","reasoning":"","key_factors":[],"risk_level":"","worst_case":0.00,"best_case":0.00}
-Rules: direction ∈ {up,down,neutral}. timeframe ∈ {1h,4h,24h}. probability ∈ [0.5,1]; <0.70 → consider "neutral". Keep ≤2 decimals. Direction "up" ⇒ expected_move>0, best_case>0≥worst_case. "down" ⇒ expected_move<0, worst_case<0≤best_case. "neutral" ⇒ |expected_move|<0.5, probability 0.50-0.65. Ensure worst_case < best_case.
-reasoning: 2-5 sentences in Simplified Chinese. MUST consider: 1) market technical analysis 2) account risk context (Sharpe ratio, balance, positions) 3) historical performance feedback. Structure: market analysis → account-aware risk assessment → probability justification.
-CRITICAL: Probability MUST reflect your TRUE assessment based on market conditions. DO NOT default to safe values (like 0.72). Each prediction should have DIFFERENT probability based on signal strength: weak signals 0.65-0.72, moderate 0.73-0.78, strong 0.79-0.85, very strong >0.85. Vary your probabilities naturally - repeating same value suggests you're not truly analyzing.
-IMPORTANT: Your PRIMARY job is to PREDICT market direction accurately. Risk context helps calibrate confidence/probability, NOT to avoid predictions. If Sharpe<0: adjust probability DOWN by 5-10%, not avoid predicting. If positions full: still predict best opportunities. Neutral should be RARE (only when truly uncertain).
-key_factors: 3 concise Simplified Chinese phrases highlighting the most critical factors (not just indicator names).
-Confidence mapping: probability ≥0.85 → "very_high"; 0.75-0.85 → "high"; 0.65-0.75 → "medium"; 0.55-0.65 → "low"; <0.55 → "very_low" (prefer direction \"neutral\").`
+	// 🆕 动态生成"最近错误教训"（基于实际表现）
+	mistakesSection := agent.buildMistakesSection(ctx)
 
-	userPrompt = "Context: Binance futures, primary interval=5m (all indicators use 5-minute candles).\n"
+	systemPrompt = `加密货币预测专家。要果断决策。
 
-	// 市场阶段和风险机会
-	if ctx.Intelligence != nil {
-		userPrompt += fmt.Sprintf("GlobalPhase: %s\n", ctx.Intelligence.MarketPhase)
+` + mistakesSection + `
 
-		if len(ctx.Intelligence.KeyRisks) > 0 {
-			userPrompt += "Risks: "
-			for i, risk := range ctx.Intelligence.KeyRisks {
-				if i > 0 {
-					userPrompt += " | "
-				}
-				userPrompt += risk
-			}
-			userPrompt += "\n"
-		}
+改进方案:
+✓ 2-3个指标一致 → 给出65-75%概率（不要中性！）
+✓ 技术指标优先于情绪（MACD/EMA/RSI权重70%，新闻30%）
+✓ 只在真正冲突时才中性（<30%的情况）
+✓ 目标是盈利，不是避免犯错
 
-		if len(ctx.Intelligence.KeyOpportunities) > 0 {
-			userPrompt += "Opportunities: "
-			for i, opp := range ctx.Intelligence.KeyOpportunities {
-				if i > 0 {
-					userPrompt += " | "
-				}
-				userPrompt += opp
-			}
-			userPrompt += "\n"
-		}
+入场时机（避免追高杀跌）:
+做多警告信号（降低概率，不拒绝）:
+- RSI>75 或 1h涨幅>5% 或 价格>EMA9+3% → 可能回调
+做空警告信号:
+- RSI<25 或 1h跌幅>5% 或 价格<EMA9-3% → 可能反弹
+注意: 强趋势可以继续 - 用判断，调整概率
 
+数据字段说明:
+- p:价格 | 1h/4h/24h:涨跌幅% | r7/r14:RSI指标
+- m:MACD值 | ms:MACD信号线（检查金叉死叉）
+- e20/e50:EMA均线 | atr14:波动率（止损参考）
+- vol24h:24h成交额(百万USDT, >100M流动性好, <50M风险高)
+- f:资金费率 | fTrend:费率趋势(上升/下降/稳定)
+- oiΔ4h/24h:持仓量变化% (>5%动能强)
+- fgi:恐慌贪婪指数(0-100, <25恐慌, >75贪婪)
+- social:社交情绪 | liqL/S:清算密集区
+
+输出规则:
+- probability: 0.50-1.00; <0.58输出neutral
+- direction: neutral(0.50-0.58), up/down(≥0.58)
+- expected_move: 做多>0, 做空<0, 中性~0; 最大±10%
+- timeframe: 1h/4h/24h匹配波动率
+- confidence: high/medium/low
+
+概率指南:
+- 1个信号: 0.58-0.65
+- 2个信号: 0.65-0.72
+- 3+信号: 0.70-0.78
+
+禁止:
+- "虽然...但是..."这种模棱两可的表达
+- 把"市场情绪"作为主要理由
+- 横盘时给高概率（>0.65需要明确趋势）
+
+趋势规则:
+- 上升趋势(价格>EMA20>EMA50且MACD>0): 预测UP 概率0.65-0.75
+- 下降趋势: 预测DOWN 概率0.65-0.75
+- 横盘: 选较强一方，或冲突时中性
+
+MACD交叉策略:
+- m>ms且m上升 → 看涨（金叉）
+- m<ms且m下降 → 看跌（死叉）
+
+🧠 从历史中学习:
+✓ 预测前检查你的过往交易
+✓ 相似市场条件导致亏损时要谨慎
+✓ 相似模式带来盈利时增加信心
+✓ reasoning中明确提到是否匹配历史案例
+
+输出JSON格式（字段名必须用英文，reasoning内容可以中文）:
+{"symbol":"SYMBOL","direction":"up|down|neutral","probability":0.65,"expected_move":2.5,"timeframe":"1h|4h|24h","confidence":"high|medium|low","reasoning":"你的中文推理<150字","key_factors":["因素1","因素2","因素3"],"risk_level":"high|medium|low","worst_case":-1.5,"best_case":3.5}`
+
+	return systemPrompt, agent.buildUserPrompt(ctx)
+}
+
+func (agent *PredictionAgent) buildUserPrompt(ctx *PredictionContext) string {
+	var sb strings.Builder
+
+	sb.WriteString("# 市场背景\n")
+	if ctx != nil && ctx.Intelligence != nil {
+		sb.WriteString(fmt.Sprintf("阶段: %s\n", ctx.Intelligence.MarketPhase))
 		if ctx.Intelligence.Summary != "" {
-			userPrompt += fmt.Sprintf("Summary: %s\n", ctx.Intelligence.Summary)
+			sb.WriteString(fmt.Sprintf("综述: %s\n", ctx.Intelligence.Summary))
+		}
+		if len(ctx.Intelligence.KeyRisks) > 0 {
+			sb.WriteString(fmt.Sprintf("风险: %s\n", strings.Join(ctx.Intelligence.KeyRisks, " | ")))
+		}
+		if len(ctx.Intelligence.KeyOpportunities) > 0 {
+			sb.WriteString(fmt.Sprintf("机会: %s\n", strings.Join(ctx.Intelligence.KeyOpportunities, " | ")))
 		}
 	}
 
-	// 币种市场数据（优化版 - 直观解读）
-	if ctx.MarketData != nil {
-		md := ctx.MarketData
-		userPrompt += fmt.Sprintf("\n=== %s Market Analysis ===\n", md.Symbol)
+	recommendedTF := agent.selectTimeframe(ctx.MarketData)
+	sb.WriteString(fmt.Sprintf("推荐时间框架: %s\n", recommendedTF))
 
-		// 价格与趋势分析
-		userPrompt += fmt.Sprintf("Price: %.4f\n", md.CurrentPrice)
+	if ctx != nil && ctx.MarketData != nil {
+		md := ctx.MarketData
+		sb.WriteString(fmt.Sprintf("\n# %s\n", md.Symbol))
+		// 🆕 方案C：全面增强数据维度（+120 tokens）
+		compactData := make(map[string]interface{})
+
+		// === 基础数据（原有11个维度）===
+		compactData["p"] = md.CurrentPrice
+		compactData["1h"] = md.PriceChange1h
+		compactData["4h"] = md.PriceChange4h
+		compactData["r7"] = md.CurrentRSI7   // 改名区分
+		compactData["m"] = md.CurrentMACD
+		compactData["f"] = md.FundingRate
 
 		if md.LongerTermContext != nil {
 			ltc := md.LongerTermContext
-
-			// 价格相对EMA位置分析
-			aboveEMA20 := md.CurrentPrice > ltc.EMA20
-			aboveEMA50 := md.CurrentPrice > ltc.EMA50
-			aboveEMA200 := md.CurrentPrice > ltc.EMA200
-
-			ema20Status := "✓"
-			if !aboveEMA20 {
-				ema20Status = "✗"
+			compactData["e20"] = ltc.EMA20
+			compactData["e50"] = ltc.EMA50
+			if md.CurrentPrice > 0 && ltc.ATR14 > 0 {
+				compactData["atr%"] = (ltc.ATR14 / md.CurrentPrice) * 100
 			}
-			ema50Status := "✓"
-			if !aboveEMA50 {
-				ema50Status = "✗"
+			if ltc.AverageVolume > 0 && ltc.CurrentVolume > 0 {
+				compactData["vol%"] = (ltc.CurrentVolume/ltc.AverageVolume - 1) * 100
 			}
-			ema200Status := "✓"
-			if !aboveEMA200 {
-				ema200Status = "✗"
+		}
+
+		// === 方案A维度（+40 tokens）===
+		compactData["24h"] = md.PriceChange24h  // 🆕 24h涨跌幅
+		compactData["r14"] = md.CurrentRSI14    // 🆕 RSI14
+		compactData["ms"] = md.MACDSignal       // 🆕 MACD Signal线
+		if md.Volume24h > 0 {
+			compactData["vol24h"] = md.Volume24h / 1e6 // 🆕 24h成交额(M USDT)
+		}
+
+		// === 方案B维度（+30 tokens）===
+		if md.LongerTermContext != nil {
+			ltc := md.LongerTermContext
+			compactData["atr14"] = ltc.ATR14 // 🆕 ATR14绝对值（止损距离参考）
+
+			// 🆕 OI变化率（从ExtendedData获取）
+			if ctx.ExtendedData != nil && ctx.ExtendedData.Derivatives != nil {
+				d := ctx.ExtendedData.Derivatives
+				if d.OIChange4h != 0 {
+					compactData["oiΔ4h"] = d.OIChange4h
+				}
+				if d.OIChange24h != 0 {
+					compactData["oiΔ24h"] = d.OIChange24h
+				}
+			}
+		}
+
+		// === 方案C维度（+50 tokens）===
+		if ctx.ExtendedData != nil {
+			// 🆕 恐慌贪婪指数
+			if ctx.ExtendedData.Sentiment != nil {
+				s := ctx.ExtendedData.Sentiment
+				compactData["fgi"] = s.FearGreedIndex // Fear & Greed Index (0-100)
+				if s.SocialSentiment != "neutral" {
+					compactData["social"] = s.SocialSentiment // bullish/bearish
+				}
 			}
 
-			userPrompt += fmt.Sprintf("Position vs EMAs (5m): %s EMA20(%.2f) | %s EMA50(%.2f) | %s EMA200(%.2f)\n",
-				ema20Status, ltc.EMA20, ema50Status, ltc.EMA50, ema200Status, ltc.EMA200)
-
-			// 趋势解读（更准确的描述）
-			var trendInterpretation string
-			if aboveEMA20 && aboveEMA50 && aboveEMA200 {
-				trendInterpretation = "Price above all EMAs (bullish structure on 5m)"
-			} else if !aboveEMA20 && !aboveEMA50 && !aboveEMA200 {
-				trendInterpretation = "Price below all EMAs (bearish structure on 5m)"
-			} else if aboveEMA20 && aboveEMA50 {
-				trendInterpretation = "Price above EMA20/50 (short-term bullish on 5m)"
-			} else if !aboveEMA20 && !aboveEMA50 {
-				trendInterpretation = "Price below EMA20/50 (short-term bearish on 5m)"
-			} else {
-				trendInterpretation = "Mixed signals (price between EMAs, consolidation on 5m)"
+			// 🆕 清算密集区（如果可用）
+			if ctx.ExtendedData.Liquidation != nil {
+				liq := ctx.ExtendedData.Liquidation
+				if len(liq.LongLiqZones) > 0 {
+					// 只显示最近的清算区（避免token浪费）
+					topZone := liq.LongLiqZones[0]
+					compactData["liqL"] = fmt.Sprintf("%.0f@%.1fM", topZone.Price, topZone.Volume/1e6)
+				}
+				if len(liq.ShortLiqZones) > 0 {
+					topZone := liq.ShortLiqZones[0]
+					compactData["liqS"] = fmt.Sprintf("%.0f@%.1fM", topZone.Price, topZone.Volume/1e6)
+				}
 			}
-			userPrompt += fmt.Sprintf("  → Trend (5m): %s\n", trendInterpretation)
 
-			// 波动率分析
-			atrPct := (ltc.ATR14 / md.CurrentPrice) * 100
-			var volatilityLevel string
-			if atrPct > 5.0 {
-				volatilityLevel = "very high"
-			} else if atrPct > 3.0 {
-				volatilityLevel = "high"
-			} else if atrPct > 2.0 {
-				volatilityLevel = "moderate"
-			} else {
-				volatilityLevel = "low"
+			// 🆕 资金费率趋势
+			if ctx.ExtendedData.Derivatives != nil {
+				d := ctx.ExtendedData.Derivatives
+				if d.FundingRateTrend != "stable" {
+					compactData["fTrend"] = d.FundingRateTrend // increasing/decreasing
+				}
 			}
-			userPrompt += fmt.Sprintf("Volatility: ATR14=%.4f (%.2f%% - %s)\n", ltc.ATR14, atrPct, volatilityLevel)
-
-			// 成交量分析
-			volRatio := ltc.CurrentVolume / ltc.AverageVolume
-			var volumeStatus string
-			if volRatio > 1.5 {
-				volumeStatus = "significantly above average"
-			} else if volRatio > 1.2 {
-				volumeStatus = "above average"
-			} else if volRatio < 0.8 {
-				volumeStatus = "below average"
-			} else {
-				volumeStatus = "normal"
-			}
-			userPrompt += fmt.Sprintf("Volume: %.0f (%.1fx avg, %s)\n", ltc.CurrentVolume, volRatio, volumeStatus)
 		}
 
-		// 动量指标分析
-		userPrompt += "\nMomentum Indicators:\n"
-
-		// RSI分析
-		var rsiStatus string
-		if md.CurrentRSI7 > 70 {
-			rsiStatus = "overbought (potential reversal down)"
-		} else if md.CurrentRSI7 > 55 {
-			rsiStatus = "bullish momentum"
-		} else if md.CurrentRSI7 < 30 {
-			rsiStatus = "oversold (potential reversal up)"
-		} else if md.CurrentRSI7 < 45 {
-			rsiStatus = "bearish momentum"
-		} else {
-			rsiStatus = "neutral"
+		if jsonBytes, err := json.Marshal(compactData); err == nil {
+			sb.WriteString(string(jsonBytes))
+			sb.WriteString("\n")
+			// 🔍 临时调试：打印完整数据（验证Plan C）
+			log.Printf("🔍 [Plan C] %s: %s", md.Symbol, string(jsonBytes))
 		}
-		userPrompt += fmt.Sprintf("  RSI7: %.2f (%s)\n", md.CurrentRSI7, rsiStatus)
-
-		// MACD分析
-		var macdStatus string
-		if md.CurrentMACD > 100 {
-			macdStatus = "strong bullish"
-		} else if md.CurrentMACD > 0 {
-			macdStatus = "bullish (golden cross)"
-		} else if md.CurrentMACD < -100 {
-			macdStatus = "strong bearish"
-		} else {
-			macdStatus = "bearish (death cross)"
-		}
-		userPrompt += fmt.Sprintf("  MACD: %.4f (%s)\n", md.CurrentMACD, macdStatus)
-
-		// 价格变化分析
-		userPrompt += "\nRecent Price Changes:\n"
-		var change1hStatus string
-		if md.PriceChange1h > 2.0 {
-			change1hStatus = "strong rally"
-		} else if md.PriceChange1h > 0.5 {
-			change1hStatus = "rising"
-		} else if md.PriceChange1h < -2.0 {
-			change1hStatus = "sharp decline"
-		} else if md.PriceChange1h < -0.5 {
-			change1hStatus = "falling"
-		} else {
-			change1hStatus = "stable"
-		}
-		userPrompt += fmt.Sprintf("  1h: %+.2f%% (%s)\n", md.PriceChange1h, change1hStatus)
-
-		var change4hStatus string
-		if md.PriceChange4h > 5.0 {
-			change4hStatus = "strong rally"
-		} else if md.PriceChange4h > 1.0 {
-			change4hStatus = "rising"
-		} else if md.PriceChange4h < -5.0 {
-			change4hStatus = "sharp decline"
-		} else if md.PriceChange4h < -1.0 {
-			change4hStatus = "falling"
-		} else {
-			change4hStatus = "stable"
-		}
-		userPrompt += fmt.Sprintf("  4h: %+.2f%% (%s)\n", md.PriceChange4h, change4hStatus)
-
-		// 趋势一致性分析
-		if (md.PriceChange1h > 0 && md.PriceChange4h > 0) {
-			userPrompt += "  → Interpretation: Aligned upward momentum (1h & 4h both positive)\n"
-		} else if (md.PriceChange1h < 0 && md.PriceChange4h < 0) {
-			userPrompt += "  → Interpretation: Aligned downward momentum (1h & 4h both negative)\n"
-		} else if (md.PriceChange1h > 0 && md.PriceChange4h < 0) {
-			userPrompt += "  → Interpretation: Short-term bounce within downtrend (conflicting signals)\n"
-		} else {
-			userPrompt += "  → Interpretation: Short-term weakness within uptrend (conflicting signals)\n"
-		}
-
-		// 资金费率
-		var fundingStatus string
-		if md.FundingRate > 0.0003 {
-			fundingStatus = "high positive (market very bullish, longs paying)"
-		} else if md.FundingRate > 0.0001 {
-			fundingStatus = "positive (longs paying shorts)"
-		} else if md.FundingRate < -0.0003 {
-			fundingStatus = "high negative (market very bearish, shorts paying)"
-		} else if md.FundingRate < -0.0001 {
-			fundingStatus = "negative (shorts paying longs)"
-		} else {
-			fundingStatus = "neutral"
-		}
-		userPrompt += fmt.Sprintf("\nFundingRate: %.4f%% (%s)\n", md.FundingRate*100, fundingStatus)
 	}
 
-	// 【优化】账户风险上下文（带解释）
-	// 策略：只在有持仓或保证金使用率>40%时才输出，节省token
-	if ctx.Account != nil && (len(ctx.Positions) > 0 || ctx.Account.MarginUsedPct > 40) {
-		userPrompt += "\n=== Account Risk Context ===\n"
-		availPct := (ctx.Account.AvailableBalance / ctx.Account.TotalEquity) * 100
-		userPrompt += fmt.Sprintf("Balance: %.1fU total | %.1fU available (%.0f%%)\n",
-			ctx.Account.TotalEquity,
-			ctx.Account.AvailableBalance,
-			availPct)
-
-		// 风险状态解释
-		var riskStatus string
-		if ctx.Account.MarginUsedPct > 80 {
-			riskStatus = "HIGH risk (>80% margin used, limited capacity)"
-		} else if ctx.Account.MarginUsedPct > 60 {
-			riskStatus = "MEDIUM risk (60-80% margin used)"
-		} else if ctx.Account.MarginUsedPct > 40 {
-			riskStatus = "LOW risk (40-60% margin used)"
-		} else {
-			riskStatus = "SAFE (low margin usage)"
+	if ctx != nil && ctx.Account != nil {
+		sb.WriteString(fmt.Sprintf("\n# 账户信息\n净值:%.0f 可用:%.0f 保证金:%.1f%%",
+			ctx.Account.TotalEquity, ctx.Account.AvailableBalance, ctx.Account.MarginUsedPct))
+		if ctx.SharpeRatio != 0 {
+			sb.WriteString(fmt.Sprintf(" 夏普:%.2f", ctx.SharpeRatio))
 		}
-		userPrompt += fmt.Sprintf("Margin: %.1f%% used → %s\n", ctx.Account.MarginUsedPct, riskStatus)
-		userPrompt += fmt.Sprintf("Positions: %d/3 slots\n", ctx.Account.PositionCount)
-
-		// 持仓详情（如有）
 		if len(ctx.Positions) > 0 {
-			userPrompt += "Current Holdings: "
-			var posList []string
+			sb.WriteString("\n持仓: ")
+			var pieces []string
 			for _, pos := range ctx.Positions {
-				symbol := strings.Replace(pos.Symbol, "USDT", "", 1)
-				posList = append(posList, fmt.Sprintf("%s %s %+.1f%%", symbol, pos.Side, pos.UnrealizedPnLPct))
+				pieces = append(pieces, fmt.Sprintf("%s%s%+.1f%%", pos.Symbol[:3], pos.Side[:1], pos.UnrealizedPnLPct))
 			}
-			userPrompt += strings.Join(posList, " | ") + "\n"
-
-			// 风险建议
-			if ctx.Account.PositionCount >= 3 {
-				userPrompt += "⚠️  Position limit reached. Only consider NEW opportunities if significantly better than existing positions.\n"
-			}
+			sb.WriteString(strings.Join(pieces, " "))
 		}
+		sb.WriteString("\n")
 	}
 
-	// 【优化】夏普比率上下文（带解释）
-	if ctx.SharpeRatio != 0 {
-		userPrompt += "\n=== Performance Context ===\n"
-		userPrompt += fmt.Sprintf("System Sharpe Ratio: %.2f", ctx.SharpeRatio)
-
-		var perfGuidance string
-		if ctx.SharpeRatio < -0.3 {
-			perfGuidance = " (POOR - be MORE conservative, require higher probability/confidence)"
-		} else if ctx.SharpeRatio < 0 {
-			perfGuidance = " (NEGATIVE - be cautious, maintain normal standards)"
-		} else if ctx.SharpeRatio < 0.5 {
-			perfGuidance = " (NEUTRAL - standard risk assessment)"
-		} else if ctx.SharpeRatio < 1.0 {
-			perfGuidance = " (GOOD - can maintain current approach)"
-		} else {
-			perfGuidance = " (EXCELLENT - system performing well)"
-		}
-		userPrompt += perfGuidance + "\n"
-	}
-
-	// 扩展数据（期权、清算、链上、情绪）
-	if ctx.ExtendedData != nil {
-		extData := market.FormatExtended(ctx.ExtendedData)
-		if extData != "" {
-			userPrompt += "Extended: " + extData + "\n"
-		}
-	}
-
-	// 【新增】预测反馈循环（自我学习）
-	if ctx.HistoricalPerf != nil {
-		// 创建tracker获取反馈
-		predTracker := tracker.NewPredictionTracker("./prediction_logs")
-		feedback := predTracker.GetRecentFeedback(ctx.MarketData.Symbol, 10)
-
-		if feedback != "" {
-			userPrompt += "\n=== Your Recent Performance ===\n"
-			userPrompt += feedback
-		}
-	}
-
-	// 历史表现统计（概览）
-	if ctx.HistoricalPerf != nil && ctx.HistoricalPerf.OverallWinRate > 0 {
+	if ctx != nil && ctx.HistoricalPerf != nil && ctx.HistoricalPerf.OverallWinRate > 0 {
 		perf := ctx.HistoricalPerf
-		userPrompt += fmt.Sprintf("Overall Stats: win_rate=%.1f%% | avg_accuracy=%.1f%%\n",
-			perf.OverallWinRate*100, perf.AvgAccuracy*100)
+		sb.WriteString(fmt.Sprintf("\n# 历史表现\n胜率:%.0f%% 准确率:%.0f%%",
+			perf.OverallWinRate*100, perf.AvgAccuracy*100))
+		if perf.CommonMistakes != "" {
+			sb.WriteString(fmt.Sprintf(" ⚠️ 避免: %s", perf.CommonMistakes))
+		}
+		sb.WriteString("\n")
 	}
 
-	userPrompt += "\n=== Task ===\n"
-	userPrompt += "Predict the next price movement for this symbol. Use ALL context above to:\n"
-	userPrompt += "1) Assess market direction (technical analysis)\n"
-	userPrompt += "2) Calibrate probability based on account risk & performance\n"
-	userPrompt += "3) Provide clear reasoning\n"
-	userPrompt += "Remember: Your job is to PREDICT accurately, not to avoid predictions. Return JSON only.\n"
+	if ctx != nil && ctx.RecentFeedback != "" {
+		sb.WriteString("\n# 近期预测案例\n")
+		sb.WriteString(ctx.RecentFeedback)
+		sb.WriteString("\n检查: 是否与过去的失败相似？是否重复成功模式？\n")
+	}
 
-	return systemPrompt, userPrompt
+	// 🧠 新增：注入实际交易记忆（优先级高于prediction tracker）
+	if ctx != nil && ctx.TraderMemory != "" {
+		log.Printf("🔍 [DEBUG] TraderMemory长度: %d字符", len(ctx.TraderMemory))
+		sb.WriteString("\n# 📚 你的交易历史\n")
+		sb.WriteString(ctx.TraderMemory)
+		sb.WriteString("\n✓ 从胜利中学习: 哪些信号有效？\n")
+		sb.WriteString("✓ 避免亏损: 需要避免什么错误？\n")
+		sb.WriteString("✓ 应用模式: 当前市场是否类似？\n")
+	} else {
+		log.Printf("⚠️  [DEBUG] TraderMemory为空！ctx=%v, TraderMemory长度=%d", ctx != nil, len(ctx.TraderMemory))
+	}
+
+	sb.WriteString("\n# 开始预测\n")
+	return sb.String()
+}
+
+// buildMistakesSection 动态生成"最近错误教训"（基于实际表现）
+func (agent *PredictionAgent) buildMistakesSection(ctx *PredictionContext) string {
+	if ctx == nil {
+		// 没有上下文，使用默认教训
+		return `最近错误教训（默认）:
+- 输出中性导致错过机会
+- 概率过低接近随机猜测
+- 过度依赖市场情绪而忽视技术指标`
+	}
+
+	// 🆕 从历史表现和交易记忆中提取实际错误
+	var mistakes []string
+
+	// 1. 检查预测准确率
+	if ctx.HistoricalPerf != nil && ctx.HistoricalPerf.AvgAccuracy > 0 {
+		avgProb := ctx.HistoricalPerf.OverallWinRate
+		accuracy := ctx.HistoricalPerf.AvgAccuracy
+
+		// 概率校准问题
+		if accuracy < 0.55 {
+			mistakes = append(mistakes, fmt.Sprintf("预测准确率%.0f%%偏低（接近随机）→ 需提高分析质量", accuracy*100))
+		}
+
+		// 中性过多
+		if ctx.HistoricalPerf.CommonMistakes != "" {
+			mistakes = append(mistakes, ctx.HistoricalPerf.CommonMistakes)
+		}
+
+		// 概率不够果断
+		if avgProb > 0 && avgProb < 0.60 {
+			mistakes = append(mistakes, fmt.Sprintf("平均概率仅%.0f%%（不够果断）→ 有信号时提高至65-75%%", avgProb*100))
+		}
+	}
+
+	// 2. 从交易记忆中提取失败模式（解析TraderMemory字符串）
+	if ctx.TraderMemory != "" {
+		// 简单检查是否提到了失败案例
+		if strings.Contains(ctx.TraderMemory, "loss") || strings.Contains(ctx.TraderMemory, "❌") {
+			// 可以从memory中提取具体的失败案例，但为了简洁，这里只给通用提示
+			mistakes = append(mistakes, "检查交易历史中的失败案例 → 避免重复相同错误")
+		}
+	}
+
+	// 3. 如果没有提取到任何错误，使用默认教训
+	if len(mistakes) == 0 {
+		return `最近错误教训（系统初始化）:
+- 避免过度输出中性 → 有2个以上指标对齐时果断给出方向
+- 提高预测概率 → 明确信号时应给65-75%概率
+- 技术指标优先 → MACD/RSI/EMA权重70%，情绪权重30%`
+	}
+
+	// 4. 格式化错误教训
+	var sb strings.Builder
+	sb.WriteString("最近错误教训（基于实际表现）:\n")
+	for _, mistake := range mistakes {
+		sb.WriteString(fmt.Sprintf("- %s\n", mistake))
+	}
+
+	return sb.String()
 }
 
 // validatePrediction 验证预测结果（增强版 - 完整性约束）
@@ -518,12 +469,34 @@ func (agent *PredictionAgent) validatePrediction(pred *types.Prediction) error {
 		return fmt.Errorf("probability必须在0.5-1之间: %.2f", pred.Probability)
 	}
 
-	// 验证confidence（统一为5级）
+	// 🆕 验证expected_move合理性
+	if math.Abs(pred.ExpectedMove) > 10.0 {
+		return fmt.Errorf("expected_move=%.2f%%超出合理范围(应在±10%%内)", pred.ExpectedMove)
+	}
+
+	// 🆕 验证best_case/worst_case合理性
+	if math.Abs(pred.BestCase) > 15.0 {
+		return fmt.Errorf("best_case=%.2f%%超出合理范围(应在±15%%内)", pred.BestCase)
+	}
+	if math.Abs(pred.WorstCase) > 15.0 {
+		return fmt.Errorf("worst_case=%.2f%%超出合理范围(应在±15%%内)", pred.WorstCase)
+	}
+
+	// 验证confidence（统一为3级）
 	validConfidence := map[string]bool{
-		"very_high": true, "high": true, "medium": true, "low": true, "very_low": true,
+		"high": true, "medium": true, "low": true,
+		// 兼容旧数据
+		"very_high": true, "very_low": true,
 	}
 	if !validConfidence[pred.Confidence] {
-		return fmt.Errorf("无效的confidence: %s", pred.Confidence)
+		return fmt.Errorf("无效的confidence: %s (应为high/medium/low)", pred.Confidence)
+	}
+
+	// 🆕 自动转换旧的very_high/very_low
+	if pred.Confidence == "very_high" {
+		pred.Confidence = "high"
+	} else if pred.Confidence == "very_low" {
+		pred.Confidence = "low"
 	}
 
 	// 验证timeframe
@@ -532,21 +505,30 @@ func (agent *PredictionAgent) validatePrediction(pred *types.Prediction) error {
 		return fmt.Errorf("无效的timeframe: %s", pred.Timeframe)
 	}
 
-	// 验证risk_level（统一为5级）
+	// 验证risk_level（统一为3级）
 	validRiskLevels := map[string]bool{
-		"very_low": true, "low": true, "medium": true, "high": true, "very_high": true,
+		"low": true, "medium": true, "high": true,
+		// 兼容旧数据
+		"very_low": true, "very_high": true,
 	}
 	if !validRiskLevels[pred.RiskLevel] {
-		return fmt.Errorf("无效的risk_level: %s", pred.RiskLevel)
+		return fmt.Errorf("无效的risk_level: %s (应为low/medium/high)", pred.RiskLevel)
 	}
 
-	// ✅ NEW: 完整性验证 - worst_case < best_case
+	// 🆕 自动转换旧的very_high/very_low
+	if pred.RiskLevel == "very_high" {
+		pred.RiskLevel = "high"
+	} else if pred.RiskLevel == "very_low" {
+		pred.RiskLevel = "low"
+	}
+
+	// ✅ 完整性验证 - worst_case < best_case
 	if pred.BestCase <= pred.WorstCase {
 		return fmt.Errorf("best_case (%.2f) 必须 > worst_case (%.2f)",
 			pred.BestCase, pred.WorstCase)
 	}
 
-	// ✅ NEW: 方向一致性验证
+	// ✅ 方向一致性验证
 	switch pred.Direction {
 	case "up":
 		if pred.BestCase <= 0 {
@@ -563,37 +545,150 @@ func (agent *PredictionAgent) validatePrediction(pred *types.Prediction) error {
 		if pred.WorstCase >= 0 {
 			return fmt.Errorf("direction=down 但 worst_case=%.2f ≥ 0", pred.WorstCase)
 		}
-		if pred.BestCase < 0 {
-			return fmt.Errorf("direction=down 但 best_case=%.2f < 0 (应该允许反弹)", pred.BestCase)
-		}
+		// 🔧 放宽best_case限制：允许best_case为负数（强烈下跌时，最好的情况也可能是"少跌点"）
+		// 只要保证 best_case > worst_case 即可（已在前面验证）
 		if pred.ExpectedMove >= 0 {
 			return fmt.Errorf("direction=down 但 expected_move=%.2f ≥ 0", pred.ExpectedMove)
 		}
 
 	case "neutral":
-		if pred.Probability > 0.65 {
-			return fmt.Errorf("direction=neutral 但 probability=%.2f > 0.65", pred.Probability)
+		// 🔧 neutral的概率范围放宽到 [0.50, 0.60]
+		if pred.Probability > 0.60 {
+			return fmt.Errorf("direction=neutral 但 probability=%.2f > 0.60", pred.Probability)
 		}
 	}
 
-	// ✅ NEW: 概率-置信度一致性（与优化后的映射规则匹配）
-	switch {
-	case pred.Probability >= 0.85 && pred.Confidence != "very_high":
-		return fmt.Errorf("probability %.2f 应映射为 confidence=very_high (实际=%s)",
+	// ✅ 概率-置信度一致性（放宽检查）
+	if pred.Probability >= 0.80 && pred.Confidence == "low" {
+		return fmt.Errorf("probability %.2f 但 confidence=%s (不一致)",
 			pred.Probability, pred.Confidence)
-	case pred.Probability >= 0.75 && pred.Probability < 0.85 && pred.Confidence != "high":
-		return fmt.Errorf("probability %.2f 应映射为 confidence=high (实际=%s)",
-			pred.Probability, pred.Confidence)
-	case pred.Probability >= 0.65 && pred.Probability < 0.75 && pred.Confidence != "medium":
-		return fmt.Errorf("probability %.2f 应映射为 confidence=medium (实际=%s)",
-			pred.Probability, pred.Confidence)
-	case pred.Probability >= 0.55 && pred.Probability < 0.65 && pred.Confidence != "low":
-		return fmt.Errorf("probability %.2f 应映射为 confidence=low (实际=%s)",
-			pred.Probability, pred.Confidence)
-	case pred.Probability < 0.55 && pred.Direction != "neutral" && pred.Confidence != "very_low":
-		return fmt.Errorf("probability %.2f 应映射为 confidence=very_low (实际=%s)",
+	}
+
+	if pred.Probability < 0.55 && pred.Confidence == "high" {
+		return fmt.Errorf("probability %.2f 但 confidence=%s (不一致)",
 			pred.Probability, pred.Confidence)
 	}
 
 	return nil
+}
+
+func (agent *PredictionAgent) validateMarketData(ctx *PredictionContext) error {
+	if ctx == nil || ctx.MarketData == nil {
+		return fmt.Errorf("市场数据为空")
+	}
+	md := ctx.MarketData
+	if md.CurrentPrice <= 0 {
+		return fmt.Errorf("价格数据无效")
+	}
+	if md.CurrentRSI7 < 0 || md.CurrentRSI7 > 100 {
+		return fmt.Errorf("RSI数据异常: %.2f", md.CurrentRSI7)
+	}
+	if md.Timestamp > 0 {
+		lastUpdate := time.Unix(md.Timestamp, 0)
+		if time.Since(lastUpdate) > 10*time.Minute {
+			return fmt.Errorf("市场数据已过期 %.1f 分钟", time.Since(lastUpdate).Minutes())
+		}
+	}
+	return nil
+}
+
+func (agent *PredictionAgent) calibrateProbability(pred *types.Prediction, ctx *PredictionContext) {
+	if pred == nil || ctx == nil {
+		return
+	}
+
+	// 🔧 关键修复：只有在样本量充足时才进行校准
+	// 如果历史准确率 < 30%，说明：
+	// 1) 样本量太小（如只有1-2条记录）
+	// 2) 系统刚启动，数据不可信
+	// 此时应该相信AI的原始判断，不进行校准
+	if ctx.HistoricalPerf != nil && ctx.HistoricalPerf.AvgAccuracy >= 0.30 {
+		calibrationFactor := ctx.HistoricalPerf.AvgAccuracy / 0.5
+		if calibrationFactor <= 0 {
+			calibrationFactor = 1
+		}
+		// 限制校准幅度，避免过度调整
+		calibrationFactor = math.Max(0.8, math.Min(1.2, calibrationFactor))
+		pred.Probability = math.Max(0.5, math.Min(1.0, pred.Probability*calibrationFactor))
+	}
+
+	if ctx.SharpeRatio < 0 {
+		switch pred.Confidence {
+		case "very_high":
+			pred.Confidence = "high"
+		case "high":
+			pred.Confidence = "medium"
+		case "medium":
+			pred.Confidence = "medium"
+		}
+	}
+}
+
+func (agent *PredictionAgent) selectTimeframe(md *market.Data) string {
+	if md == nil || md.CurrentPrice <= 0 || md.LongerTermContext == nil || md.LongerTermContext.ATR14 <= 0 {
+		return "4h"
+	}
+
+	atrPct := (md.LongerTermContext.ATR14 / md.CurrentPrice) * 100
+
+	// 🔧 调整阈值，增加1h和24h的使用
+	switch {
+	case atrPct > 4.0:  // 原来是3.0，提高阈值
+		return "1h"     // 极高波动用1h（快速反应）
+	case atrPct > 2.0:  // 新增中等波动区间
+		return "4h"     // 中高波动用4h
+	case atrPct < 0.8:  // 原来是1.0，降低阈值
+		return "24h"    // 极低波动用24h（等待变盘）
+	default:
+		return "4h"     // 默认4h
+	}
+}
+
+func (agent *PredictionAgent) validatePredictionEnhanced(pred *types.Prediction, md *market.Data) error {
+	if pred == nil || md == nil {
+		return nil
+	}
+
+	rsi := md.CurrentRSI7
+
+	// 🔧 放宽RSI检查：只在极端情况才警告
+	if pred.Direction == "up" && rsi > 85 && pred.Probability > 0.70 {
+		return fmt.Errorf("RSI=%.2f 严重超买，高概率预测上涨风险极高", rsi)
+	}
+	if pred.Direction == "down" && rsi < 15 && pred.Probability > 0.70 {
+		return fmt.Errorf("RSI=%.2f 严重超卖，高概率预测下跌风险极高", rsi)
+	}
+
+	// 🆕 趋势一致性检查（仅检查明显逆势）
+	if md.LongerTermContext != nil && md.LongerTermContext.EMA20 > 0 && md.LongerTermContext.EMA50 > 0 {
+		price := md.CurrentPrice
+		ema20 := md.LongerTermContext.EMA20
+		ema50 := md.LongerTermContext.EMA50
+		macd := md.CurrentMACD
+
+		// 判断是否为明显的强趋势
+		isStrongDowntrend := price < ema20*0.98 && ema20 < ema50 && macd < -0.0001
+		isStrongUptrend := price > ema20*1.02 && ema20 > ema50 && macd > 0.0001
+
+		// ⚠️  只在高概率逆势预测时才警告（允许低概率的逆势尝试）
+		if isStrongDowntrend && pred.Direction == "up" && pred.Probability > 0.70 {
+			return fmt.Errorf("明显下行趋势(价格<EMA20<EMA50且MACD<0)但高概率%.0f%%预测上涨 (建议降低概率或输出neutral)",
+				pred.Probability*100)
+		}
+
+		if isStrongUptrend && pred.Direction == "down" && pred.Probability > 0.70 {
+			return fmt.Errorf("明显上行趋势(价格>EMA20>EMA50且MACD>0)但高概率%.0f%%预测下跌 (建议降低概率或输出neutral)",
+				pred.Probability*100)
+		}
+	}
+
+	return nil
+}
+
+// truncateString 截断字符串到指定长度  
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }

@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762469054",
+  "timestamp": "2025-11-07T06:44:14.321479+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.82,
+    "expected_move": -45.33,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "以太坊价格处于强烈下行趋势，当前低于所有关键均线，且4小时级别呈现空头排列，技术面偏弱。尽管RSI进入超卖区域可能引发短期反弹，但交易量萎缩与市场情绪恐慌限制了上行空间。账户层面夏普比率接近中性，历史胜率偏低导致信心略有下调，但下跌信号明确。综合判断下行概率较高，但需防范超卖反弹风险。",
+    "key_factors": [
+      "强烈下行趋势",
+      "RSI超卖但动能不足",
+      "交易量萎缩与情绪恐慌"
+    ],
+    "risk_level": "medium",
+    "worst_case": -75,
+    "best_case": 15
+  },
+  "entry_price": 3301.99,
+  "target_time": "2025-11-07T10:44:14.321479+08:00",
+  "evaluated": true,
+  "actual_move": 0.7553021056998979,
+  "actual_high": 3331.25,
+  "actual_low": 3273.04,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:58.293815+08:00"
+}

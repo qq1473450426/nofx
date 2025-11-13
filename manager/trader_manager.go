@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"nofx/config"
+	"nofx/memory"
 	"nofx/trader"
 	"sync"
 	"time"
@@ -36,6 +37,7 @@ func (tm *TraderManager) AddTrader(cfg config.TraderConfig, coinPoolURL string, 
 		ID:                    cfg.ID,
 		Name:                  cfg.Name,
 		AIModel:               cfg.AIModel,
+		QwenModel:             cfg.QwenModel,
 		Exchange:              cfg.Exchange,
 		BinanceAPIKey:         cfg.BinanceAPIKey,
 		BinanceSecretKey:      cfg.BinanceSecretKey,
@@ -170,4 +172,22 @@ func (tm *TraderManager) GetComparisonData() (map[string]interface{}, error) {
 	comparison["count"] = len(traders)
 
 	return comparison, nil
+}
+
+// GetTraderMemory 获取指定trader的AI记忆
+func (tm *TraderManager) GetTraderMemory(traderID string) (*memory.SimpleMemory, error) {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+
+	t, exists := tm.traders[traderID]
+	if !exists {
+		return nil, fmt.Errorf("trader ID '%s' 不存在", traderID)
+	}
+
+	memoryManager := t.GetMemoryManager()
+	if memoryManager == nil {
+		return nil, fmt.Errorf("trader '%s' 的记忆管理器未初始化", traderID)
+	}
+
+	return memoryManager.GetMemory(), nil
 }

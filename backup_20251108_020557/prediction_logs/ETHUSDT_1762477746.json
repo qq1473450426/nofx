@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762477746",
+  "timestamp": "2025-11-07T09:09:06.73526+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.76,
+    "expected_move": -1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "以太坊价格处于明显的下行趋势，当前价位低于所有关键均线，且4小时级别均线呈空头排列，技术面偏弱。尽管RSI接近超卖区域，但市场情绪极度恐惧且交易量萎缩，反弹动力不足。MACD虽出现金叉信号，但结合系统夏普比率为0及历史胜率偏低，该信号可靠性下降。综合判断短期内仍有下行空间，但跌幅受限于波动率收敛。",
+    "key_factors": [
+      "空头排列压制价格",
+      "恐慌情绪抑制信心",
+      "量能萎缩限制波动"
+    ],
+    "risk_level": "medium",
+    "worst_case": -3.2,
+    "best_case": 0.9
+  },
+  "entry_price": 3306.73,
+  "target_time": "2025-11-07T13:09:06.735259+08:00",
+  "evaluated": true,
+  "actual_move": 1.5042050605885506,
+  "actual_high": 3364,
+  "actual_low": 3273.04,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:00.88252+08:00"
+}

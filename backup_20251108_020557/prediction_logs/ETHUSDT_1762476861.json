@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762476861",
+  "timestamp": "2025-11-07T08:54:21.534858+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 18.5,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格虽处于下行趋势，但短期动能转强，1小时和4小时涨幅一致向上，RSI维持在多头区域，MACD金叉且处于多头状态。尽管市场整体情绪偏恐惧且成交量萎缩，但短期超卖反弹迹象明显。结合系统夏普比率为中性，胜率偏低但预测准确率尚可，适度调降信心但仍支持上涨概率。",
+    "key_factors": [
+      "短期动能转强",
+      "MACD多头信号",
+      "超卖后反弹机会"
+    ],
+    "risk_level": "medium",
+    "worst_case": -12.3,
+    "best_case": 31.2
+  },
+  "entry_price": 3325.77,
+  "target_time": "2025-11-07T12:54:21.534858+08:00",
+  "evaluated": true,
+  "actual_move": 0.12688790866475433,
+  "actual_high": 3364,
+  "actual_low": 3273.04,
+  "is_correct": true,
+  "accuracy": 0.006858805873770635,
+  "evaluated_time": "2025-11-07T23:23:00.513938+08:00"
+}

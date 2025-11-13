@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762486798",
+  "timestamp": "2025-11-07T11:39:58.052675+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.7803111115030775,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于下行趋势但短期动能转强，MACD出现金叉且4小时级别涨幅初现。尽管整体均线仍为空头排列，但成交量萎缩至均值下方表明卖压减弱。账户夏普比率为负，需谨慎对待信号强度，结合恐惧情绪与超卖状态，反弹概率提升但持续性待观察。历史准确率偏低背景下，该信号仍属近期较强机会，故维持较高概率预测。",
+    "key_factors": [
+      "MACD金叉信号",
+      "价格接近支撑位",
+      "短期超卖反弹"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.2,
+    "best_case": 3.5
+  },
+  "entry_price": 157.37,
+  "target_time": "2025-11-07T15:39:58.052674+08:00",
+  "evaluated": true,
+  "actual_move": -0.6036728728474405,
+  "actual_high": 158.2,
+  "actual_low": 155.18,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:21.302775+08:00"
+}

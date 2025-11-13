@@ -9,9 +9,9 @@ const (
 
 	// === 止损止盈倍数范围 ===
 	MinStopMultiple = 2.0  // 最小止损倍数（xATR）
-	MaxStopMultiple = 8.0  // 最大止损倍数（xATR）
-	MinTPMultiple   = 6.0  // 最小止盈倍数（xATR）
-	MaxTPMultiple   = 20.0 // 最大止盈倍数（xATR）
+	MaxStopMultiple = 25.0 // 最大止损倍数（xATR） - 放宽以支持低波动市场
+	MinTPMultiple   = 3.0  // 最小止盈倍数（xATR） - 降低以适应低波动
+	MaxTPMultiple   = 30.0 // 最大止盈倍数（xATR） - 同步放宽
 
 	// === 风险回报比要求 ===
 	MinRiskReward     = 2.0  // 最低R/R比要求

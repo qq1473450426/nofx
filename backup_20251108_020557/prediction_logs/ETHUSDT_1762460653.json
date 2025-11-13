@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762460653",
+  "timestamp": "2025-11-07T04:24:13.451171+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 15.5,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于强烈下行趋势，但短期RSI接近中性且超卖，存在修复需求。尽管均线空头排列，但近期跌幅收窄，动能减弱，结合关键支撑位或引发反弹。账户夏普比为负，历史胜率偏低，需下调信心，但当前市场结构提供适度上行机会。综合判断：短期反弹概率中等偏高。",
+    "key_factors": [
+      "超卖反弹可能",
+      "RSI修复需求",
+      "成交量萎缩下的支撑测试"
+    ],
+    "risk_level": "medium",
+    "worst_case": -8.2,
+    "best_case": 32.1
+  },
+  "entry_price": 3320.7,
+  "target_time": "2025-11-07T08:24:13.45117+08:00",
+  "evaluated": true,
+  "actual_move": -0.49718432860540746,
+  "actual_high": 3335,
+  "actual_low": 3285.97,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:55.724382+08:00"
+}

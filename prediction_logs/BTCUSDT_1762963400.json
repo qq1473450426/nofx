@@ -1,0 +1,32 @@
+{
+  "id": "BTCUSDT_1762963400",
+  "timestamp": "2025-11-13T00:03:20.395058+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "down",
+    "probability": 0.7,
+    "expected_move": -2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "RSI14 at 19 (oversold), but MACD below signal and price below EMA20/EMA50. Bearish sentiment and increasing open interest suggest further downside.",
+    "key_factors": [
+      "rsi14",
+      "macd_below_signal",
+      "price_below_ema20_ema50",
+      "bearish_sentiment"
+    ],
+    "risk_level": "medium",
+    "worst_case": -5,
+    "best_case": 1.0447815464180885
+  },
+  "entry_price": 102044.3,
+  "target_time": "2025-11-14T00:03:20.395057+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

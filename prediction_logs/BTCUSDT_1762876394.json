@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762876394",
+  "timestamp": "2025-11-11T23:53:14.342023+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "Extremely oversold RSI (22.73) suggests a short-term bounce, despite the strong downtrend and bearish sentiment.",
+    "key_factors": [
+      "RSI extremely oversold",
+      "Strong downtrend",
+      "Low volume"
+    ],
+    "risk_level": "high",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 103281.1,
+  "target_time": "2025-11-12T23:53:14.342022+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

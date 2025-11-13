@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762476267",
+  "timestamp": "2025-11-07T08:44:27.709102+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示SOL价格虽处于空头趋势，但短期RSI进入中性区域并呈现反弹动能，MACD出现金叉且1小时和4小时涨势一致，表明短期多头力量增强。尽管账户夏普比率为负，系统整体胜率偏低，但当前市场波动率适中且成交量萎缩后可能出现反向修复，结合恐惧情绪下的超卖预期，上行概率略占优。因此维持偏多判断，但需警惕下行风险。",
+    "key_factors": [
+      "RSI反弹动能",
+      "MACD金叉信号",
+      "成交量萎缩后的修复可能"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.2,
+    "best_case": 3.5
+  },
+  "entry_price": 156.32,
+  "target_time": "2025-11-07T12:44:27.709101+08:00",
+  "evaluated": true,
+  "actual_move": -0.5181678607983637,
+  "actual_high": 158.52,
+  "actual_low": 154.11,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:17.272177+08:00"
+}

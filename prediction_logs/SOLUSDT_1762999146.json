@@ -1,0 +1,32 @@
+{
+  "id": "SOLUSDT_1762999146",
+  "timestamp": "2025-11-13T09:59:06.414583+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.65,
+    "expected_move": -2,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "Price below EMAs, MACD bearish, and bearish sentiment, but low volume and RSI in neutral zone.",
+    "key_factors": [
+      "price\u003cEMA20",
+      "MACD\u003cms",
+      "bearish sentiment",
+      "low volume"
+    ],
+    "risk_level": "medium",
+    "worst_case": 1.267085515340886,
+    "best_case": -3.5
+  },
+  "entry_price": 152.59,
+  "target_time": "2025-11-14T09:59:06.414582+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

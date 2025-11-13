@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762994909",
+  "timestamp": "2025-11-13T08:48:29.81921+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 1.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "MACD and RSI are neutral to bullish, with increasing open interest. Low volatility and accumulation phase suggest a potential upward move.",
+    "key_factors": [
+      "m",
+      "r7",
+      "oiΔ24h"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1,
+    "best_case": 3
+  },
+  "entry_price": 101781.7,
+  "target_time": "2025-11-14T08:48:29.819209+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

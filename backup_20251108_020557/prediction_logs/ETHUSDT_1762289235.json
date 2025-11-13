@@ -1,0 +1,33 @@
+{
+  "id": "ETHUSDT_1762289235",
+  "timestamp": "2025-11-05T04:47:15.352521+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -2.8,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs with strong downward trend momentum, low volume confirming lack of bullish conviction, and negative funding rate amplifying bearish pressure despite proximity to $100k support.",
+    "key_factors": [
+      "price_below_key_emas",
+      "low_volume_confirmation",
+      "strong_down_trend",
+      "negative_funding_rate",
+      "extreme_fear_sentiment"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 3204.79,
+  "target_time": "2025-11-05T08:47:15.35252+08:00",
+  "evaluated": true,
+  "actual_move": 0.7435744619772255,
+  "actual_high": 3305.75,
+  "actual_low": 3055,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:58:01.72422+08:00"
+}

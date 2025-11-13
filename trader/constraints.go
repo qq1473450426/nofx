@@ -39,9 +39,9 @@ func NewTradingConstraints() *TradingConstraints {
 		positionOpenTime:     make(map[string]time.Time),
 		dailyResetTime:       time.Now(),
 		hourlyResetTime:      time.Now(),
-		cooldownMinutes:      20,  // 20分钟冷却期
+		cooldownMinutes:      20,  // 20分钟冷却期（与binance_futures统一）
 		maxDailyTrades:       999, // 实际取消日交易上限
-		maxHourlyTrades:      2,   // 每小时最多2次
+		maxHourlyTrades:      3,   // 【优化】每小时最多3次（从2次放宽）
 		minHoldingMinutes:    15,  // 最短持有15分钟
 		maxPositions:         3,   // 最多持仓3个币种
 	}
@@ -167,6 +167,19 @@ func (tc *TradingConstraints) CanClosePosition(symbol, side string, isStopLoss b
 	}
 
 	return nil
+}
+
+// GetPositionOpenTime 获取持仓的开仓时间
+func (tc *TradingConstraints) GetPositionOpenTime(symbol, side string) time.Time {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+
+	key := symbol + "_" + side
+	openTime, exists := tc.positionOpenTime[key]
+	if !exists {
+		return time.Time{} // 返回零值时间，表示未找到
+	}
+	return openTime
 }
 
 // GetStatus 获取当前约束状态（用于日志）

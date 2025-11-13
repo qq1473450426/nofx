@@ -1,0 +1,33 @@
+{
+  "id": "ETHUSDT_1762892409",
+  "timestamp": "2025-11-12T04:20:09.236594+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.7,
+    "expected_move": -2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "强下行趋势，价格低于EMA20和EMA50，MACD为负，RSI处于超卖但未见反转信号，成交量萎缩，市场情绪悲观。",
+    "key_factors": [
+      "price\u003cEMA20\u003cEMA50",
+      "MACD\u003c0",
+      "RSI32.2（超卖）",
+      "volume_vs_avg-70.39%",
+      "sentiment bearish"
+    ],
+    "risk_level": "high",
+    "worst_case": -5,
+    "best_case": 0.9445502871570753
+  },
+  "entry_price": 3445.06,
+  "target_time": "2025-11-13T04:20:09.236594+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

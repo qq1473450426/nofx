@@ -86,15 +86,22 @@ func enforceBinanceRateLimit() {
 type Data struct {
 	Symbol            string
 	CurrentPrice      float64
+	PriceChange15m    float64 // 🆕 15分钟价格变化百分比
+	PriceChange30m    float64 // 🆕 30分钟价格变化百分比
 	PriceChange1h     float64 // 1小时价格变化百分比
 	PriceChange4h     float64 // 4小时价格变化百分比
+	PriceChange24h    float64 // 🆕 24小时价格变化百分比
 	CurrentEMA20      float64
 	CurrentMACD       float64
+	MACDSignal        float64 // 🆕 MACD信号线（9期EMA of MACD）
 	CurrentRSI7       float64
+	CurrentRSI14      float64 // 🆕 当前RSI14
+	Volume24h         float64 // 🆕 24小时成交额(USDT)
 	OpenInterest      *OIData
 	FundingRate       float64
 	IntradaySeries    *IntradayData
 	LongerTermContext *LongerTermData
+	Timestamp         int64 // 最新K线收盘时间（Unix秒）
 }
 
 // OIData Open Interest数据
@@ -171,9 +178,29 @@ func computeMarketData(symbol string) (*Data, error) {
 	currentPrice := klines5m[len(klines5m)-1].Close
 	currentEMA20 := calculateEMA(klines5m, 20)
 	currentMACD := calculateMACD(klines5m)
+	macdSignal := calculateMACDSignal(klines5m) // 🆕 MACD信号线
 	currentRSI7 := calculateRSI(klines5m, 7)
+	currentRSI14 := calculateRSI(klines5m, 14) // 🆕 RSI14
 
 	// 计算价格变化百分比 (全部基于5分钟K线)
+	// 🆕 15分钟价格变化 = 3个5分钟K线前的价格 (3 * 5min = 15min)
+	priceChange15m := 0.0
+	if len(klines5m) >= 4 { // 至少需要4根K线 (当前 + 3根前)
+		price15mAgo := klines5m[len(klines5m)-4].Close
+		if price15mAgo > 0 {
+			priceChange15m = ((currentPrice - price15mAgo) / price15mAgo) * 100
+		}
+	}
+
+	// 🆕 30分钟价格变化 = 6个5分钟K线前的价格 (6 * 5min = 30min)
+	priceChange30m := 0.0
+	if len(klines5m) >= 7 { // 至少需要7根K线 (当前 + 6根前)
+		price30mAgo := klines5m[len(klines5m)-7].Close
+		if price30mAgo > 0 {
+			priceChange30m = ((currentPrice - price30mAgo) / price30mAgo) * 100
+		}
+	}
+
 	// 1小时价格变化 = 12个5分钟K线前的价格 (12 * 5min = 60min)
 	priceChange1h := 0.0
 	if len(klines5m) >= 13 { // 至少需要13根K线 (当前 + 12根前)
@@ -190,6 +217,28 @@ func computeMarketData(symbol string) (*Data, error) {
 		if price4hAgo > 0 {
 			priceChange4h = ((currentPrice - price4hAgo) / price4hAgo) * 100
 		}
+	}
+
+	// 🆕 24小时价格变化 = 288个5分钟K线前的价格 (288 * 5min = 1440min = 24h)
+	priceChange24h := 0.0
+	if len(klines5m) >= 289 {
+		price24hAgo := klines5m[len(klines5m)-289].Close
+		if price24hAgo > 0 {
+			priceChange24h = ((currentPrice - price24hAgo) / price24hAgo) * 100
+		}
+	}
+
+	// 🆕 计算24小时成交额（使用最近288根5分钟K线的成交量之和 * 平均价格）
+	volume24h := 0.0
+	if len(klines5m) >= 288 {
+		totalVolume := 0.0
+		avgPrice := 0.0
+		for i := len(klines5m) - 288; i < len(klines5m); i++ {
+			totalVolume += klines5m[i].Volume
+			avgPrice += klines5m[i].Close
+		}
+		avgPrice = avgPrice / 288.0
+		volume24h = totalVolume * avgPrice
 	}
 
 	// 获取OI数据
@@ -209,15 +258,22 @@ func computeMarketData(symbol string) (*Data, error) {
 	result := &Data{
 		Symbol:            symbol,
 		CurrentPrice:      currentPrice,
+		PriceChange15m:    priceChange15m, // 🆕
+		PriceChange30m:    priceChange30m, // 🆕
 		PriceChange1h:     priceChange1h,
 		PriceChange4h:     priceChange4h,
+		PriceChange24h:    priceChange24h, // 🆕
 		CurrentEMA20:      currentEMA20,
 		CurrentMACD:       currentMACD,
+		MACDSignal:        macdSignal,   // 🆕
 		CurrentRSI7:       currentRSI7,
+		CurrentRSI14:      currentRSI14, // 🆕
+		Volume24h:         volume24h,    // 🆕
 		OpenInterest:      oiData,
 		FundingRate:       fundingRate,
 		IntradaySeries:    intradayData,
 		LongerTermContext: longerTermData,
+		Timestamp:         klines5m[len(klines5m)-1].CloseTime / 1000,
 	}
 
 	return result, nil
@@ -309,6 +365,45 @@ func calculateMACD(klines []Kline) float64 {
 
 	// MACD = EMA12 - EMA26
 	return ema12 - ema26
+}
+
+// calculateMACDSignal 计算MACD信号线（MACD的9期EMA）
+func calculateMACDSignal(klines []Kline) float64 {
+	if len(klines) < 35 { // 需要至少26个点计算MACD，再加9个点计算Signal
+		return 0
+	}
+
+	// 计算完整的MACD序列
+	macdSeries := calculateMACDSeries(klines)
+	if len(macdSeries) == 0 {
+		return 0
+	}
+
+	// 从MACD序列中提取有效值（非零值）
+	validMACD := []float64{}
+	for _, v := range macdSeries {
+		if v != 0 {
+			validMACD = append(validMACD, v)
+		}
+	}
+
+	if len(validMACD) < 9 {
+		return 0
+	}
+
+	// 计算MACD的9期EMA作为Signal线
+	sum := 0.0
+	for i := 0; i < 9; i++ {
+		sum += validMACD[i]
+	}
+	signal := sum / 9.0
+
+	multiplier := 2.0 / 10.0 // 9期EMA的multiplier = 2/(9+1)
+	for i := 9; i < len(validMACD); i++ {
+		signal = (validMACD[i]-signal)*multiplier + signal
+	}
+
+	return signal
 }
 
 // calculateRSI 计算RSI

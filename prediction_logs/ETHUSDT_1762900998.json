@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762900998",
+  "timestamp": "2025-11-12T06:43:18.556412+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "长期趋势向上，MACD显示潜在上涨动能，尽管市场情绪悲观但存在积累期的买入机会。",
+    "key_factors": [
+      "长期趋势向上",
+      "MACD显示潜在上涨动能",
+      "积累期买入机会"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 3426.86,
+  "target_time": "2025-11-13T06:43:18.556411+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

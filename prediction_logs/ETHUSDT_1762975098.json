@@ -1,0 +1,33 @@
+{
+  "id": "ETHUSDT_1762975098",
+  "timestamp": "2025-11-13T03:18:18.044694+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.75,
+    "expected_move": -3,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "MACD below signal and decreasing, EMA20\u003cEMA50, RSI in bearish zone, low FGI, bearish social sentiment.",
+    "key_factors": [
+      "m\u003cms",
+      "e20\u003ce50",
+      "r14\u003c40",
+      "fgi\u003c25",
+      "social"
+    ],
+    "risk_level": "medium",
+    "worst_case": 1.2438698757599056,
+    "best_case": -5
+  },
+  "entry_price": 3399.09,
+  "target_time": "2025-11-14T03:18:18.044693+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

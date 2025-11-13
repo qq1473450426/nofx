@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -58,6 +59,7 @@ type DecisionAction struct {
 	Timestamp time.Time `json:"timestamp"` // 执行时间
 	Success   bool      `json:"success"`   // 是否成功
 	Error     string    `json:"error"`     // 错误信息
+	Reasoning string    `json:"reasoning"` // ✅ NEW: 平仓原因
 }
 
 // DecisionLogger 决策日志记录器
@@ -77,16 +79,58 @@ func NewDecisionLogger(logDir string) *DecisionLogger {
 		fmt.Printf("⚠ 创建日志目录失败: %v\n", err)
 	}
 
+	// 🔧 修复：从现有日志文件中读取最大的周期编号，避免重启后周期号重复
+	maxCycleNumber := 0
+	files, err := ioutil.ReadDir(logDir)
+	if err == nil {
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+
+			// 读取文件内容获取cycle_number
+			filepath := filepath.Join(logDir, file.Name())
+			data, err := ioutil.ReadFile(filepath)
+			if err != nil {
+				continue
+			}
+
+			var record DecisionRecord
+			if err := json.Unmarshal(data, &record); err != nil {
+				continue
+			}
+
+			if record.CycleNumber > maxCycleNumber {
+				maxCycleNumber = record.CycleNumber
+			}
+		}
+	}
+
+	if maxCycleNumber > 0 {
+		fmt.Printf("📊 从历史日志恢复周期编号，继续从周期 %d 开始\n", maxCycleNumber+1)
+	} else {
+		fmt.Printf("📊 无历史日志，周期编号从 1 开始\n")
+	}
+
 	return &DecisionLogger{
 		logDir:      logDir,
-		cycleNumber: 0,
+		cycleNumber: maxCycleNumber, // 从历史最大值继续计数
 	}
 }
 
 // LogDecision 记录决策
 func (l *DecisionLogger) LogDecision(record *DecisionRecord) error {
-	l.cycleNumber++
-	record.CycleNumber = l.cycleNumber
+	// 🔧 修复：只在record未设置cycleNumber时才自增（兼容旧代码）
+	// 正常情况下，AutoTrader会在创建record时就设置好cycleNumber
+	if record.CycleNumber == 0 {
+		l.cycleNumber++
+		record.CycleNumber = l.cycleNumber
+	} else {
+		// 同步内部计数器（确保重启后继续计数正确）
+		if record.CycleNumber > l.cycleNumber {
+			l.cycleNumber = record.CycleNumber
+		}
+	}
 	record.Timestamp = time.Now()
 
 	// 生成文件名：decision_YYYYMMDD_HHMMSS_cycleN.json
@@ -111,19 +155,18 @@ func (l *DecisionLogger) LogDecision(record *DecisionRecord) error {
 	return nil
 }
 
-// GetLatestRecords 获取最近N条记录（按时间正序：从旧到新）
+// GetLatestRecords 获取最近N条记录（按周期号正序：从旧到新）
 func (l *DecisionLogger) GetLatestRecords(n int) ([]*DecisionRecord, error) {
 	files, err := ioutil.ReadDir(l.logDir)
 	if err != nil {
 		return nil, fmt.Errorf("读取日志目录失败: %w", err)
 	}
 
-	// 先按修改时间倒序收集（最新的在前）
-	var records []*DecisionRecord
-	count := 0
-	for i := len(files) - 1; i >= 0 && count < n; i-- {
-		file := files[i]
-		if file.IsDir() {
+	// 🔧 关键修复：读取所有记录并按cycle_number排序，而不是按文件修改时间
+	// 因为文件修改时间可能不准确，导致前端显示周期号混乱
+	var allRecords []*DecisionRecord
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
 
@@ -138,11 +181,27 @@ func (l *DecisionLogger) GetLatestRecords(n int) ([]*DecisionRecord, error) {
 			continue
 		}
 
-		records = append(records, &record)
-		count++
+		allRecords = append(allRecords, &record)
 	}
 
-	// 反转数组，让时间从旧到新排列（用于图表显示）
+	// 按cycle_number降序排序（最新的周期在前）
+	for i := 0; i < len(allRecords); i++ {
+		for j := i + 1; j < len(allRecords); j++ {
+			if allRecords[i].CycleNumber < allRecords[j].CycleNumber {
+				allRecords[i], allRecords[j] = allRecords[j], allRecords[i]
+			}
+		}
+	}
+
+	// 取最新的N条记录
+	var records []*DecisionRecord
+	limit := n
+	if limit > len(allRecords) {
+		limit = len(allRecords)
+	}
+	records = allRecords[:limit]
+
+	// 反转数组，让周期号从旧到新排列（用于图表显示）
 	for i, j := 0, len(records)-1; i < j; i, j = i+1, j-1 {
 		records[i], records[j] = records[j], records[i]
 	}
@@ -283,6 +342,7 @@ type TradeOutcome struct {
 	OpenTime      time.Time `json:"open_time"`      // 开仓时间
 	CloseTime     time.Time `json:"close_time"`     // 平仓时间
 	WasStopLoss   bool      `json:"was_stop_loss"`  // 是否止损
+	CloseReason   string    `json:"close_reason"`   // ✅ NEW: 平仓原因
 }
 
 // PerformanceAnalysis 交易表现分析
@@ -441,6 +501,7 @@ func (l *DecisionLogger) AnalyzePerformance(lookbackCycles int) (*PerformanceAna
 						Duration:      action.Timestamp.Sub(openTime).String(),
 						OpenTime:      openTime,
 						CloseTime:     action.Timestamp,
+						CloseReason:   action.Reasoning, // ✅ NEW: 添加平仓原因
 					}
 
 					analysis.RecentTrades = append(analysis.RecentTrades, outcome)

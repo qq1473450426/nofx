@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762458563",
+  "timestamp": "2025-11-07T03:49:23.698026+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.76,
+    "expected_move": -2.45,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示SOL价格处于强烈下行趋势，低于所有关键均线，RSI偏弱且MACD形成死叉，短期1小时下跌动能增强。尽管4小时涨跌幅稳定，但整体市场情绪悲观，叠加系统夏普比率为负，预测准确性偏低，需下调信心。历史表现反馈胜率不足46%，结合高波动风险，谨慎看跌。",
+    "key_factors": [
+      "跌破多条均线支撑",
+      "MACD死叉信号",
+      "市场情绪极度悲观"
+    ],
+    "risk_level": "medium",
+    "worst_case": -5.1,
+    "best_case": 1.2
+  },
+  "entry_price": 156.33,
+  "target_time": "2025-11-07T07:49:23.698026+08:00",
+  "evaluated": true,
+  "actual_move": -0.8891447578839728,
+  "actual_high": 157.72,
+  "actual_low": 153.34,
+  "is_correct": true,
+  "accuracy": 0.362916227707744,
+  "evaluated_time": "2025-11-07T23:23:10.524941+08:00"
+}

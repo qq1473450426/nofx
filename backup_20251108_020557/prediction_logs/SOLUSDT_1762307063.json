@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762307063",
+  "timestamp": "2025-11-05T09:44:23.007863+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.72,
+    "expected_move": 2.8,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Despite strong bearish momentum and price below all key EMAs, extreme fear sentiment (23) and deeply oversold RSI(7) at 19.71 suggest high short-term reversal risk. MACD divergence may emerge if selling pressure eases, and low volume decline indicates weakening sell conviction.",
+    "key_factors": [
+      "extreme_fear_greed_index",
+      "RSI_oversold",
+      "price_below_EMA"
+    ],
+    "risk_level": "high",
+    "worst_case": -2,
+    "best_case": 5
+  },
+  "entry_price": 148,
+  "target_time": "2025-11-05T13:44:23.007862+08:00",
+  "evaluated": true,
+  "actual_move": 6.398648648648648,
+  "actual_high": 158.48,
+  "actual_low": 147.61,
+  "is_correct": true,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:58:14.501921+08:00"
+}

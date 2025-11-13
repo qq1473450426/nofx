@@ -1,0 +1,31 @@
+{
+  "id": "BNBUSDT_1762316496",
+  "timestamp": "2025-11-05T12:21:36.040504+08:00",
+  "symbol": "BNBUSDT",
+  "prediction": {
+    "symbol": "BNBUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -2.4,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs with strong bearish momentum and declining volume, indicating weak buying interest. MACD positive but fading, RSI near oversold yet no reversal signal. Low volume suggests lack of conviction for recovery.",
+    "key_factors": [
+      "EMA bearish alignment",
+      "low volume",
+      "RSI near oversold without reversal"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 945.98,
+  "target_time": "2025-11-05T16:21:36.040504+08:00",
+  "evaluated": true,
+  "actual_move": -0.15645151060276308,
+  "actual_high": 957.5,
+  "actual_low": 941.11,
+  "is_correct": true,
+  "accuracy": 0.06518812941781782,
+  "evaluated_time": "2025-11-06T01:57:49.859961+08:00"
+}

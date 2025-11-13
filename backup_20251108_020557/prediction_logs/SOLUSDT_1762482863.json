@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762482863",
+  "timestamp": "2025-11-07T10:34:23.541464+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格虽处于长期下行趋势，但短期RSI接近中性且出现金叉信号，叠加1小时和4小时级别价格同步上涨，表明短期多头动能增强。账户夏普比率为负，系统整体胜率偏低，需下调预测信心，但当前反弹信号较明确。历史数据显示在类似超卖反弹情境下，短期价格上涨概率提升至约75%。综合判断为偏强上涨机会。",
+    "key_factors": [
+      "RSI反弹进入中性区",
+      "MACD金叉信号",
+      "短期量价背离"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.2,
+    "best_case": 3.5
+  },
+  "entry_price": 156.91,
+  "target_time": "2025-11-07T14:34:23.541464+08:00",
+  "evaluated": true,
+  "actual_move": 0.29316168504238604,
+  "actual_high": 158.52,
+  "actual_low": 155.18,
+  "is_correct": true,
+  "accuracy": 0.158465775698587,
+  "evaluated_time": "2025-11-07T23:23:19.652848+08:00"
+}

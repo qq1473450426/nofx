@@ -1,0 +1,32 @@
+{
+  "id": "BTCUSDT_1762690099",
+  "timestamp": "2025-11-09T20:08:19.907477+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "比特币价格处于强势上涨趋势，技术指标支持。但市场情绪悲观且交易量下降，需警惕短期超买风险。",
+    "key_factors": [
+      "强势上涨趋势",
+      "技术指标支持",
+      "市场情绪悲观",
+      "交易量下降"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 102117.4,
+  "target_time": "2025-11-10T20:08:19.907477+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

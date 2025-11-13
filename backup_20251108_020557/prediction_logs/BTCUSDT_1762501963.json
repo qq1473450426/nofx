@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762501963",
+  "timestamp": "2025-11-07T15:52:43.686283+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.7611278530547347,
+    "expected_move": 180.5,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "价格位于EMA20和EMA50上方，短期趋势偏强，RSI处于健康区间具备上行空间。尽管MACD死叉与市场恐惧情绪构成压制，但低波动与缩量显示积累接近尾声。历史准确率虽偏低（13.4%），但近期价格稳定且方向一致，结合中性资金费率，突破上行概率提升。账户夏普比为负，适度下调信心但仍支持看涨。",
+    "key_factors": [
+      "价格站稳关键均线",
+      "RSI未超买具动能",
+      "低波动蓄势待发"
+    ],
+    "risk_level": "medium",
+    "worst_case": -90.3,
+    "best_case": 361
+  },
+  "entry_price": 101939.6,
+  "target_time": "2025-11-07T19:52:43.686283+08:00",
+  "evaluated": true,
+  "actual_move": -1.4278062695949365,
+  "actual_high": 102024.7,
+  "actual_low": 99750,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:52.445957+08:00"
+}

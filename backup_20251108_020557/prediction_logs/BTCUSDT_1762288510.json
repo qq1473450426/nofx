@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762288510",
+  "timestamp": "2025-11-05T04:35:10.208165+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -2.1,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs with bearish MACD momentum and low volume, indicating sustained selling pressure. Despite extreme fear, lack of buying conviction suggests further downside likely.",
+    "key_factors": [
+      "price_below_key_emas",
+      "negative_macd_momentum",
+      "low_volume_confirmation"
+    ],
+    "risk_level": "high",
+    "worst_case": -3.5,
+    "best_case": 0.8
+  },
+  "entry_price": 100064.4,
+  "target_time": "2025-11-05T08:35:10.208164+08:00",
+  "evaluated": true,
+  "actual_move": 0.6163031008030945,
+  "actual_high": 101859.5,
+  "actual_low": 98888.8,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:57:53.706028+08:00"
+}

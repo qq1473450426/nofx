@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762479548",
+  "timestamp": "2025-11-07T09:39:08.150669+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.76,
+    "expected_move": -45.23,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于强烈下行趋势，均线下方空头排列，RSI维持在34附近表明卖压持续。尽管接近关键支撑位且成交量萎缩，可能引发小幅反弹，但整体动能仍偏向下行。账户夏普比率为负，系统表现偏弱，因此适度下调预测概率。历史准确率偏低（13.4%）提醒需谨慎对待信号强度，但当前趋势明确提供较高可信度的下跌预期。",
+    "key_factors": [
+      "强烈下行趋势",
+      "RSI接近超卖",
+      "成交量萎缩"
+    ],
+    "risk_level": "medium",
+    "worst_case": -80,
+    "best_case": 15
+  },
+  "entry_price": 3290.56,
+  "target_time": "2025-11-07T13:39:08.150669+08:00",
+  "evaluated": true,
+  "actual_move": 2.1595108431391603,
+  "actual_high": 3364,
+  "actual_low": 3285.01,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:01.257404+08:00"
+}

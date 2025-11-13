@@ -77,6 +77,7 @@ func (s *Server) setupRoutes() {
 		api.GET("/statistics", s.handleStatistics)
 		api.GET("/equity-history", s.handleEquityHistory)
 		api.GET("/performance", s.handlePerformance)
+		api.GET("/memory", s.handleMemory) // 🧠 AI记忆系统
 	}
 }
 
@@ -416,8 +417,26 @@ func (s *Server) Start() error {
 	log.Printf("  • GET  /api/statistics?trader_id=xxx - 指定trader的统计信息")
 	log.Printf("  • GET  /api/equity-history?trader_id=xxx - 指定trader的收益率历史数据")
 	log.Printf("  • GET  /api/performance?trader_id=xxx - 指定trader的AI学习表现分析")
+	log.Printf("  • GET  /api/memory?trader_id=xxx - 指定trader的AI记忆系统")
 	log.Printf("  • GET  /health               - 健康检查")
 	log.Println()
 
 	return s.router.Run(addr)
+}
+
+// handleMemory 🧠 获取AI记忆系统数据
+func (s *Server) handleMemory(c *gin.Context) {
+	_, traderID, err := s.getTraderFromQuery(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	memory, err := s.traderManager.GetTraderMemory(traderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, memory)
 }

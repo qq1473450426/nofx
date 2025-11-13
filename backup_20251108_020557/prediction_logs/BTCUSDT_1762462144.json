@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762462144",
+  "timestamp": "2025-11-07T04:49:04.464095+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.74,
+    "expected_move": 520,
+    "timeframe": "4h",
+    "confidence": "medium",
+    "reasoning": "技术面显示价格处于强烈下行趋势，但RSI接近超卖区域（33.59），且成交量显著萎缩，暗示抛压减弱。尽管均线空头排列，但短期波动率收缩后可能出现反弹突破。账户层面夏普比率为负（-0.05），系统胜率偏低（45.3%），需下调预测信心，但仍存在技术性反弹机会。综合判断为中等概率的短期向上修正。",
+    "key_factors": [
+      "超卖反弹信号",
+      "成交量萎缩",
+      "波动率收缩突破"
+    ],
+    "risk_level": "high",
+    "worst_case": -380,
+    "best_case": 860
+  },
+  "entry_price": 100806,
+  "target_time": "2025-11-07T08:49:04.464094+08:00",
+  "evaluated": true,
+  "actual_move": 0.6933119060373333,
+  "actual_high": 101596.3,
+  "actual_low": 100500,
+  "is_correct": true,
+  "accuracy": 0.001333292126994956,
+  "evaluated_time": "2025-11-07T23:22:40.65483+08:00"
+}

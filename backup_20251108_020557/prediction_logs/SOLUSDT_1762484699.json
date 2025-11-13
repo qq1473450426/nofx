@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762484699",
+  "timestamp": "2025-11-07T11:04:59.810259+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.81,
+    "expected_move": -2.35,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于强劲下行趋势中，尽管短期反弹且MACD为正，但RSI已进入超买区域，暗示回调风险上升。成交量低于均值表明上涨动能不足，叠加市场情绪偏恐惧，进一步支持下跌可能。账户层面夏普比率为负，历史胜率偏低，需谨慎对待多头信号，因此调降看涨概率并强化对反转的预期。综合判断当前反弹不可持续，价格大概率在4小时内回落。",
+    "key_factors": [
+      "RSI超买预警",
+      "量能萎缩",
+      "整体下跌趋势"
+    ],
+    "risk_level": "medium",
+    "worst_case": -4.1,
+    "best_case": 0.95
+  },
+  "entry_price": 158.1,
+  "target_time": "2025-11-07T15:04:59.810258+08:00",
+  "evaluated": true,
+  "actual_move": -0.8032890575584958,
+  "actual_high": 158.52,
+  "actual_low": 155.18,
+  "is_correct": true,
+  "accuracy": 0.34182513087595556,
+  "evaluated_time": "2025-11-07T23:23:20.574529+08:00"
+}

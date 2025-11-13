@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762490399",
+  "timestamp": "2025-11-07T12:39:59.364789+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.7598595748214971,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示SOL处于强劲下跌趋势，价格低于所有主要均线，MACD呈现死叉，短期空头占优。但RSI已进入超卖区域（23.16），且成交量萎缩，暗示抛压趋弱，可能出现技术性反弹。结合市场整体恐惧情绪与BTC下行压力，反弹力度受限，但4小时级别存在修复需求。账户Sharpe为负，需谨慎对待信号强度，因此概率适度下调5%。",
+    "key_factors": [
+      "超卖反弹信号",
+      "成交量萎缩积累",
+      "情绪极度恐惧"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.2,
+    "best_case": 3.9
+  },
+  "entry_price": 155.31,
+  "target_time": "2025-11-07T16:39:59.364789+08:00",
+  "evaluated": true,
+  "actual_move": 1.075268817204293,
+  "actual_high": 158.2,
+  "actual_low": 155.18,
+  "is_correct": true,
+  "accuracy": 0.5812263876779962,
+  "evaluated_time": "2025-11-07T23:23:21.662751+08:00"
+}

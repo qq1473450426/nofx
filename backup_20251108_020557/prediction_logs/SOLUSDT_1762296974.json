@@ -1,0 +1,32 @@
+{
+  "id": "SOLUSDT_1762296974",
+  "timestamp": "2025-11-05T06:56:14.832679+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -3.2,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs with strong bearish trend structure. Despite short-term bullish price action in the last hour and elevated volume, the broader market context shows distribution phase, weak momentum, and extremely negative sentiment. MACD is positive but declining, indicating weakening upside follow-through. High volume without sustained upward movement suggests absorption by sellers.",
+    "key_factors": [
+      "price_below_key_EMAs",
+      "distribution_phase",
+      "bearish_social_sentiment",
+      "high_volume_no_follow_through"
+    ],
+    "risk_level": "high",
+    "worst_case": -5.1,
+    "best_case": 1.8
+  },
+  "entry_price": 154.69,
+  "target_time": "2025-11-05T10:56:14.832678+08:00",
+  "evaluated": true,
+  "actual_move": 0.3232270993600103,
+  "actual_high": 155.87,
+  "actual_low": 147.2,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:58:13.597692+08:00"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762502313",
+  "timestamp": "2025-11-07T15:58:33.411532+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.767395870640336,
+    "expected_move": 1.25,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示SOL价格站稳EMA均线群之上，RSI处于64.46显示多头动能持续，MACD出现金叉且柱状线转正，短期趋势偏强。市场虽整体情绪偏恐惧，但SOL自身价格结构稳健，成交量虽低但未恶化。账户层面保证金使用率仅12.4%，风险可控，Sharpe比率为负但不影响当前信号强度。历史胜率偏低但近期价格行为已改善，支持上行概率。",
+    "key_factors": [
+      "站稳三均线之上",
+      "MACD金叉动能增强",
+      "RSI未超买留空间"
+    ],
+    "risk_level": "medium",
+    "worst_case": -0.8,
+    "best_case": 3.3
+  },
+  "entry_price": 157.6,
+  "target_time": "2025-11-07T19:58:33.411531+08:00",
+  "evaluated": true,
+  "actual_move": -2.3857868020304513,
+  "actual_high": 158.1,
+  "actual_low": 151.58,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:24.572605+08:00"
+}

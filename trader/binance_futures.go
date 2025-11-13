@@ -26,6 +26,11 @@ type FuturesTrader struct {
 	positionsCacheTime  time.Time
 	positionsCacheMutex sync.RWMutex
 
+	// 冷却期管理：记录每个币种的最后平仓时间
+	lastCloseTimes     map[string]time.Time
+	closeTimeMutex     sync.RWMutex
+	cooldownDuration   time.Duration // 冷却期时长（默认4小时）
+
 	// 缓存有效期（60秒）- 防止API限流
 	cacheDuration time.Duration
 }
@@ -43,8 +48,10 @@ func NewFuturesTrader(apiKey, secretKey string, useTestnet bool) *FuturesTrader 
 	}
 
 	return &FuturesTrader{
-		client:        client,
-		cacheDuration: 60 * time.Second, // 60秒缓存（防止币安API限流封禁）
+		client:           client,
+		cacheDuration:    60 * time.Second,  // 60秒缓存（防止币安API限流封禁）
+		lastCloseTimes:   make(map[string]time.Time), // 初始化冷却期记录
+		cooldownDuration: 20 * time.Minute,  // 20分钟冷却期（与TradingConstraints统一）
 	}
 }
 
@@ -136,73 +143,81 @@ func (t *FuturesTrader) GetPositions() ([]map[string]interface{}, error) {
 	for _, posMap := range result {
 		symbol := posMap["symbol"].(string)
 		side := posMap["side"].(string)
-		// entryPrice := posMap["entryPrice"].(float64)  // 不再需要入场价
+		entryPrice := posMap["entryPrice"].(float64) // 需要入场价用于保本保护
 		markPrice := posMap["markPrice"].(float64)
 		unRealizedProfit := posMap["unRealizedProfit"].(float64)
-		leverage := int(posMap["leverage"].(float64))
+		_ = int(posMap["leverage"].(float64)) // unused
 		positionAmt := posMap["positionAmt"].(float64)
 
-		// 计算保证金 = |持仓价值| / 杠杆
-		positionValue := markPrice * positionAmt
-		if positionValue < 0 {
-			positionValue = -positionValue
-		}
-		marginUsed := positionValue / float64(leverage)
-
-		// 计算盈利百分比（基于保证金）
-		if marginUsed <= 0 {
-			continue
-		}
-		profitPct := (unRealizedProfit / marginUsed) * 100
-
-		// 只有盈利≥2%时才触发动态止损
-		if profitPct < 2.0 {
-			continue
-		}
-
-		// 注释掉旧的锁定利润百分比计算逻辑（已改为基于当前价格的回撤百分比）
-		/*
-		// 计算应该锁定的利润百分比（与模拟盘保持一致）
-		var lockedProfitPct float64
-		if profitPct < 5.0 {
-			// 阶段1: 0-5%盈利，每2%移动一次
-			stageLevel := int(profitPct / 2.0)
-			lockedProfitPct = float64((stageLevel - 1) * 2)
-		} else if profitPct < 10.0 {
-			// 阶段2: 5-10%盈利，每1.5%移动一次
-			exceededPct := profitPct - 5.0
-			stageLevel := int(exceededPct / 1.5)
-			lockedProfitPct = 4.0 + float64(stageLevel)*1.5
-		} else {
-			// 阶段3: 10%+盈利，每1%移动一次
-			exceededPct := profitPct - 10.0
-			stageLevel := int(exceededPct / 1.0)
-			lockedProfitPct = 8.5 + float64(stageLevel)*1.0
-		}
-		*/
-
-		// 计算新的止损价格（基于当前价格，而不是入场价）
-		// 移动止损的目的：锁定已获得的利润，防止回撤
-		var newStopLoss float64
-
-		// 根据盈利百分比计算允许的最大回撤百分比
-		// 盈利越高，允许的回撤越小（锁定更多利润）
-		var maxDrawbackPct float64
-		if profitPct < 5.0 {
-			maxDrawbackPct = 1.5  // 盈利2-5%时，允许回撤1.5%
-		} else if profitPct < 10.0 {
-			maxDrawbackPct = 1.0  // 盈利5-10%时，允许回撤1%
-		} else {
-			maxDrawbackPct = 0.5  // 盈利10%+时，允许回撤0.5%
-		}
-
-		// 计算止损价格（从当前价格出发，向不利方向设置止损）
+		// 🔧 修复：计算实际价格变动百分比（不是杠杆盈利率）
+		// 这是价格真实涨跌幅，与杠杆无关
+		var priceMovePct float64
 		if side == "long" {
-			// 做多：止损在当前价下方
-			newStopLoss = markPrice * (1.0 - maxDrawbackPct*0.01)
+			priceMovePct = ((markPrice - entryPrice) / entryPrice) * 100
 		} else {
-			// 做空：止损在当前价上方
-			newStopLoss = markPrice * (1.0 + maxDrawbackPct*0.01)
+			priceMovePct = ((entryPrice - markPrice) / entryPrice) * 100
+		}
+
+		// 【优化1】提高触发阈值：只有价格变动≥1%时才触发动态止损
+		// （注意：这里用的是实际价格变动，不是杠杆盈利率）
+		if priceMovePct < 1.0 {
+			continue
+		}
+
+		// 【优化2】小额利润保护：绝对利润<1 USDT不移动止损
+		absoluteProfit := unRealizedProfit
+		if absoluteProfit < 0 {
+			absoluteProfit = -absoluteProfit
+		}
+		if absoluteProfit < 1.0 {
+			log.Printf("💰 [跳过移动止损] %s %s | 利润%.2f USDT < 1.0 USDT（太小，不移动）",
+				symbol, side, absoluteProfit)
+			continue
+		}
+
+		// 🔧 修复：根据实际价格变动（不是杠杆盈利）决定允许的回撤百分比
+		// 原理：价格涨得越多，允许回撤越少（锁定更多利润）
+		// 📊 用户反馈优化：放宽回撤限制，给予价格更多呼吸空间
+		var allowedDrawdownPct float64
+		if priceMovePct >= 10.0 {
+			allowedDrawdownPct = 4.0  // 价格涨≥10%时，允许回撤4%（原2%）
+		} else if priceMovePct >= 5.0 {
+			allowedDrawdownPct = 6.0  // 价格涨≥5%时，允许回撤6%（原3%）
+		} else if priceMovePct >= 3.0 {
+			allowedDrawdownPct = 8.0  // 价格涨≥3%时，允许回撤8%（原4%）
+		} else if priceMovePct >= 1.0 {
+			allowedDrawdownPct = 10.0  // 价格涨≥1%时，允许回撤10%（原5%）
+		} else {
+			// 价格变动<1%，不移动止损（已在前面过滤）
+			continue
+		}
+
+		// 🔧 修复：基于当前价格计算止损（允许一定回撤），而不是基于入场价加利润
+		// 这样可以确保止损价永远低于当前价（做多）或高于当前价（做空）
+		var newStopLoss float64
+		var breakEvenPrice float64
+		if side == "long" {
+			// 做多：止损价 = 当前价 × (1 - 允许回撤%)
+			newStopLoss = markPrice * (1.0 - allowedDrawdownPct*0.01)
+
+			// 🔒 保本保护：止损价不能低于保本价（入场价+0.1%手续费）
+			breakEvenPrice = entryPrice * 1.001
+			if newStopLoss < breakEvenPrice {
+				log.Printf("🔒 [保本保护] %s 止损从%.4f提升到保本价%.4f",
+					symbol, newStopLoss, breakEvenPrice)
+				newStopLoss = breakEvenPrice
+			}
+		} else {
+			// 做空：止损价 = 当前价 × (1 + 允许回撤%)
+			newStopLoss = markPrice * (1.0 + allowedDrawdownPct*0.01)
+
+			// 🔒 保本保护：止损价不能高于保本价（入场价-0.1%手续费）
+			breakEvenPrice = entryPrice * 0.999
+			if newStopLoss > breakEvenPrice {
+				log.Printf("🔒 [保本保护] %s 止损从%.4f降低到保本价%.4f",
+					symbol, newStopLoss, breakEvenPrice)
+				newStopLoss = breakEvenPrice
+			}
 		}
 
 		// 获取当前止损订单
@@ -235,10 +250,10 @@ func (t *FuturesTrader) GetPositions() ([]map[string]interface{}, error) {
 			} else {
 				if oldStopLoss > 0 {
 					log.Printf("📈 [移动止损] %s %s | 盈利%.1f%% | 当前价%.4f | 止损 %.4f → %.4f | 允许回撤%.1f%%",
-						symbol, strings.ToUpper(side), profitPct, markPrice, oldStopLoss, newStopLoss, maxDrawbackPct)
+						symbol, strings.ToUpper(side), priceMovePct, markPrice, oldStopLoss, newStopLoss, allowedDrawdownPct)
 				} else {
 					log.Printf("📈 [设置止损] %s %s | 盈利%.1f%% | 当前价%.4f | 新止损 %.4f | 允许回撤%.1f%%",
-						symbol, strings.ToUpper(side), profitPct, markPrice, newStopLoss, maxDrawbackPct)
+						symbol, strings.ToUpper(side), priceMovePct, markPrice, newStopLoss, allowedDrawdownPct)
 				}
 			}
 		}
@@ -268,10 +283,10 @@ func (t *FuturesTrader) invalidateCache() {
 
 // SetLeverage 设置杠杆（智能判断+冷却期）
 func (t *FuturesTrader) SetLeverage(symbol string, leverage int) error {
-	// ✅ 修复: 强制清空缓存，确保获取最新持仓信息（避免使用过时的杠杆数据）
-	t.invalidateCache()
+	// ✅ 修复API限流问题：不再强制清空缓存，使用现有缓存判断杠杆
+	// 之前每次都清空缓存会导致频繁调用API，触发限流封禁
 
-	// 先尝试获取当前杠杆（从持仓信息）
+	// 先尝试获取当前杠杆（使用缓存的持仓信息）
 	currentLeverage := 0
 	positions, err := t.GetPositions()
 	if err == nil {
@@ -308,11 +323,44 @@ func (t *FuturesTrader) SetLeverage(symbol string, leverage int) error {
 
 	log.Printf("  ✓ %s 杠杆已切换为 %dx", symbol, leverage)
 
-	// 切换杠杆后等待5秒（避免冷却期错误）
-	log.Printf("  ⏱ 等待5秒冷却期...")
-	time.Sleep(5 * time.Second)
+	// 切换杠杆后等待1秒（避免后续API调用过快）
+	time.Sleep(1 * time.Second)
 
 	return nil
+}
+
+// checkCooldown 检查币种是否在冷却期内
+func (t *FuturesTrader) checkCooldown(symbol string) error {
+	t.closeTimeMutex.RLock()
+	lastCloseTime, exists := t.lastCloseTimes[symbol]
+	t.closeTimeMutex.RUnlock()
+
+	if !exists {
+		// 从未平仓过，允许开仓
+		return nil
+	}
+
+	elapsed := time.Since(lastCloseTime)
+	if elapsed < t.cooldownDuration {
+		remaining := t.cooldownDuration - elapsed
+		return fmt.Errorf("%s在冷却期内（平仓后需等待%.0f分钟，已过%.0f分钟，还需%.0f分钟）",
+			symbol,
+			t.cooldownDuration.Minutes(),
+			elapsed.Minutes(),
+			remaining.Minutes())
+	}
+
+	return nil
+}
+
+// recordCloseTime 记录平仓时间
+func (t *FuturesTrader) recordCloseTime(symbol string) {
+	t.closeTimeMutex.Lock()
+	t.lastCloseTimes[symbol] = time.Now()
+	t.closeTimeMutex.Unlock()
+
+	log.Printf("  🕐 已记录 %s 平仓时间，%.0f分钟内禁止再开仓",
+		symbol, t.cooldownDuration.Minutes())
 }
 
 // SetMarginType 设置保证金模式
@@ -347,6 +395,11 @@ func (t *FuturesTrader) SetMarginType(symbol string, marginType futures.MarginTy
 
 // OpenLong 开多仓
 func (t *FuturesTrader) OpenLong(symbol string, quantity float64, leverage int) (map[string]interface{}, error) {
+	// ✅ 冷却期检查：防止同币种频繁交易
+	if err := t.checkCooldown(symbol); err != nil {
+		return nil, err
+	}
+
 	// 先取消该币种的所有委托单（清理旧的止损止盈单）
 	if err := t.CancelAllOrders(symbol); err != nil {
 		log.Printf("  ⚠ 取消旧委托单失败（可能没有委托单）: %v", err)
@@ -396,6 +449,11 @@ func (t *FuturesTrader) OpenLong(symbol string, quantity float64, leverage int) 
 
 // OpenShort 开空仓
 func (t *FuturesTrader) OpenShort(symbol string, quantity float64, leverage int) (map[string]interface{}, error) {
+	// ✅ 冷却期检查：防止同币种频繁交易
+	if err := t.checkCooldown(symbol); err != nil {
+		return nil, err
+	}
+
 	// 先取消该币种的所有委托单（清理旧的止损止盈单）
 	if err := t.CancelAllOrders(symbol); err != nil {
 		log.Printf("  ⚠ 取消旧委托单失败（可能没有委托单）: %v", err)
@@ -534,6 +592,10 @@ func (t *FuturesTrader) CloseLong(symbol string, quantity float64) (map[string]i
 	result["symbol"] = order.Symbol
 	result["status"] = order.Status
 	result["realized_pnl"] = realizedPnL // ✅ 添加realized_pnl字段
+
+	// ✅ 记录平仓时间，启动冷却期
+	t.recordCloseTime(symbol)
+
 	return result, nil
 }
 
@@ -628,6 +690,10 @@ func (t *FuturesTrader) CloseShort(symbol string, quantity float64) (map[string]
 	result["symbol"] = order.Symbol
 	result["status"] = order.Status
 	result["realized_pnl"] = realizedPnL // ✅ 添加realized_pnl字段
+
+	// ✅ 记录平仓时间，启动冷却期
+	t.recordCloseTime(symbol)
+
 	return result, nil
 }
 

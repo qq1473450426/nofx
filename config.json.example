@@ -18,6 +18,7 @@
       "name": "Binance Qwen Trader",
       "enabled": true,
       "ai_model": "qwen",
+      "qwen_model": "qwen-plus",
       "exchange": "binance",
       "binance_api_key": "your_binance_api_key",
       "binance_secret_key": "your_binance_secret_key",

@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762471152",
+  "timestamp": "2025-11-07T07:19:12.449218+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "市场技术分析显示价格处于强劲下行趋势，但RSI接近超卖区域（29.39），短期可能出现反弹。尽管MACD呈死叉且价格低于所有主要均线，但交易量萎缩表明下跌动能减弱。账户风险方面，保证金使用率低（6.2%），资金安全，适合捕捉短期波动机会。历史表现虽胜率偏低（45.3%），但当前信号强度中等，结合波动率与超卖状态，上行概率略高。",
+    "key_factors": [
+      "超卖反弹潜力",
+      "交易量萎缩",
+      "短期波动机会"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.2,
+    "best_case": 4.1
+  },
+  "entry_price": 153.99,
+  "target_time": "2025-11-07T11:19:12.449217+08:00",
+  "evaluated": true,
+  "actual_move": 2.5845834145074287,
+  "actual_high": 158.52,
+  "actual_low": 153.34,
+  "is_correct": true,
+  "accuracy": 0.6029278840500386,
+  "evaluated_time": "2025-11-07T23:23:14.714465+08:00"
+}

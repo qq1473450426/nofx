@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762473844",
+  "timestamp": "2025-11-07T08:04:04.688275+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.76,
+    "expected_move": -1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于强烈下行趋势，当前价格远低于所有关键均线，尽管短期RSI超买但动能减弱，MACD金叉未能放量。市场情绪极度恐惧且成交量萎缩，表明反弹乏力。账户夏普比率为负，系统整体胜率偏低，需谨慎对待信号强度，因此概率适度下调5%。历史反馈显示类似形态后多现冲高回落，支持看跌判断。",
+    "key_factors": [
+      "强烈下行趋势",
+      "RSI超买背离",
+      "成交量萎缩"
+    ],
+    "risk_level": "medium",
+    "worst_case": -3.2,
+    "best_case": 0.9
+  },
+  "entry_price": 3322.62,
+  "target_time": "2025-11-07T12:04:04.688274+08:00",
+  "evaluated": true,
+  "actual_move": 0.5384305156773971,
+  "actual_high": 3364,
+  "actual_low": 3273.04,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:59.387247+08:00"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762690707",
+  "timestamp": "2025-11-09T20:18:27.979944+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "强上升趋势，MACD正值，成交量增加。但市场情绪偏熊且RSI超买。",
+    "key_factors": [
+      "强上升趋势",
+      "MACD正值",
+      "成交量增加"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 159.29,
+  "target_time": "2025-11-10T20:18:27.979943+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

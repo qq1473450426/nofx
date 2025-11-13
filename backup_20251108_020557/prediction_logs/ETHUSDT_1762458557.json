@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762458557",
+  "timestamp": "2025-11-07T03:49:17.209013+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 25.4,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于超卖区域，RSI接近反弹阈值，短期可能出现修正性上涨。尽管均线空头排列且市场情绪偏空，但成交量放大伴随价格企稳，暗示卖压可能衰竭。结合系统夏普比率为负，适度下调预测概率，但仍支持短期反弹机会。历史准确率偏低背景下，维持对超卖反弹的合理信心。",
+    "key_factors": [
+      "超卖反弹信号",
+      "量价背离迹象",
+      "情绪极端偏空"
+    ],
+    "risk_level": "medium",
+    "worst_case": -18.3,
+    "best_case": 62.1
+  },
+  "entry_price": 3312.79,
+  "target_time": "2025-11-07T07:49:17.209012+08:00",
+  "evaluated": true,
+  "actual_move": -0.21009481434078334,
+  "actual_high": 3335.43,
+  "actual_low": 3285.97,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:55.355956+08:00"
+}

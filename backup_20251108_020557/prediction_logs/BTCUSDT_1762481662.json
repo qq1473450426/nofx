@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762481662",
+  "timestamp": "2025-11-07T10:14:22.0119+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 589.23,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格虽处于下行趋势且市场情绪偏空，但短期RSI接近超买区域，MACD仍处正区间，表明多头动能尚未完全消退。近期1小时和4小时涨幅均为正，价格稳定在反弹通道中。账户层面夏普比率为负，历史胜率偏低，需适度下调信心；但当前波动率适中且存在交易机会，结合量能企稳判断反弹可能较强。因此预测短期内将有小幅上行。",
+    "key_factors": [
+      "RSI接近超买反弹压力",
+      "MACD多头残存信号",
+      "量能萎缩下的弱反弹机会"
+    ],
+    "risk_level": "medium",
+    "worst_case": -321.45,
+    "best_case": 987.12
+  },
+  "entry_price": 101581.1,
+  "target_time": "2025-11-07T14:14:22.0119+08:00",
+  "evaluated": true,
+  "actual_move": 0.6767991289718265,
+  "actual_high": 102480.4,
+  "actual_low": 101200,
+  "is_correct": true,
+  "accuracy": 0.0011486162092423369,
+  "evaluated_time": "2025-11-07T23:22:46.578416+08:00"
+}

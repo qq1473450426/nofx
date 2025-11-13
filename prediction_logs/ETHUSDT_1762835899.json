@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762835899",
+  "timestamp": "2025-11-11T12:38:19.937941+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "RSI7 is oversold, MACD near bullish crossover, and EMA200 support. Bearish sentiment and low volume are risks.",
+    "key_factors": [
+      "RSI7 oversold",
+      "MACD near bullish crossover",
+      "EMA200 support"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 3585.3,
+  "target_time": "2025-11-12T12:38:19.937941+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762502016",
+  "timestamp": "2025-11-07T15:53:36.741869+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.7847529232381152,
+    "expected_move": 1.25,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "市场技术分析显示价格位于EMA均线群上方，短期结构偏多，RSI处于64.56表明多头动能尚存但未过热。尽管MACD呈现死叉信号，但成交量萎缩且波动率处于低位，暗示空头力量不足。结合账户风险环境（夏普比率为负），需适度下调预测信心，但整体技术面仍支持上行。历史胜率偏低（45.3%）提醒需谨慎，但当前价格位置与动量组合更倾向反弹机会。",
+    "key_factors": [
+      "价格站稳均线群上方",
+      "RSI保持中性偏强",
+      "缩量震荡待突破"
+    ],
+    "risk_level": "medium",
+    "worst_case": -0.8,
+    "best_case": 2.1
+  },
+  "entry_price": 157.55,
+  "target_time": "2025-11-07T19:53:36.741869+08:00",
+  "evaluated": true,
+  "actual_move": -2.5261821643922677,
+  "actual_high": 158.1,
+  "actual_low": 151.58,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:24.391439+08:00"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "HYPEUSDT_1762313199",
+  "timestamp": "2025-11-05T11:26:39.043488+08:00",
+  "symbol": "HYPEUSDT",
+  "prediction": {
+    "symbol": "HYPEUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -3.2,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price is in a downtrend with bearish EMA alignment and high RSI despite lack of upward momentum, indicating weakness. Despite positive MACD and elevated volume, the failure to break resistance and extremely negative sentiment suggest downside bias.",
+    "key_factors": [
+      "bearish_ema_alignment",
+      "high_rsi_divergence",
+      "negative_social_sentiment"
+    ],
+    "risk_level": "high",
+    "worst_case": -5,
+    "best_case": 1.5
+  },
+  "entry_price": 40.096,
+  "target_time": "2025-11-05T15:26:39.043488+08:00",
+  "evaluated": true,
+  "actual_move": 0.613527533918601,
+  "actual_high": 41.034,
+  "actual_low": 39.736,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:58:05.276693+08:00"
+}

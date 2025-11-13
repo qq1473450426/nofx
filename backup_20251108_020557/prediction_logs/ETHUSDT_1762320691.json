@@ -1,0 +1,33 @@
+{
+  "id": "ETHUSDT_1762320691",
+  "timestamp": "2025-11-05T13:31:31.555771+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.72,
+    "expected_move": -2.8,
+    "timeframe": "24h",
+    "confidence": "high",
+    "reasoning": "Price remains in a confirmed downtrend with bearish EMA alignment and weak momentum. Despite oversold conditions and extreme fear, volume deficiency and negative social sentiment suggest continued selling pressure. A retest of $100000 support is likely before any sustainable reversal.",
+    "key_factors": [
+      "bearish_ema_alignment",
+      "low_volume",
+      "extreme_fear_sentiment",
+      "macd_negative",
+      "price_below_major_moving_averages"
+    ],
+    "risk_level": "high",
+    "worst_case": -5,
+    "best_case": 1.2
+  },
+  "entry_price": 3336.4,
+  "target_time": "2025-11-06T13:31:31.55577+08:00",
+  "evaluated": true,
+  "actual_move": 2.1526195899772125,
+  "actual_high": 3479,
+  "actual_low": 3272.24,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:53.897559+08:00"
+}

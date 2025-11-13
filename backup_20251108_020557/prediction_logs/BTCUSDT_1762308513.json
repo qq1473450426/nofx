@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762308513",
+  "timestamp": "2025-11-05T10:08:33.230676+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -2.3,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Despite short-term bullish momentum and elevated RSI, price remains below all key EMAs with strong bearish trend structure. Extremely high RSI suggests overbought conditions amid weak sentiment, increasing likelihood of pullback.",
+    "key_factors": [
+      "RSI_86.52",
+      "price_below_EMA20_50_200",
+      "bearish_social_sentiment"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.1,
+    "best_case": 0.8
+  },
+  "entry_price": 101435.4,
+  "target_time": "2025-11-05T14:08:33.230676+08:00",
+  "evaluated": true,
+  "actual_move": 0.15822878403397633,
+  "actual_high": 102326.4,
+  "actual_low": 100873.2,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:57:55.173055+08:00"
+}

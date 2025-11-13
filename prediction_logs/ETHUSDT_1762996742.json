@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762996742",
+  "timestamp": "2025-11-13T09:19:02.79099+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "MACD above signal, RSI not overbought, and long-term trend is bullish.",
+    "key_factors": [
+      "m\u003ems",
+      "r7\u003c75",
+      "e20\u003ee50"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 3439.71,
+  "target_time": "2025-11-14T09:19:02.79099+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

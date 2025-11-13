@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762497480",
+  "timestamp": "2025-11-07T14:38:00.086301+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.7806636751939627,
+    "expected_move": 18.5,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于均线收敛区域，RSI7接近超卖且MACD出现金叉，短期有反弹动能。尽管市场情绪偏恐惧且波动率较低，但资金使用率安全、账户风险可控，支持适度捕捉潜在突破机会。历史胜率虽偏低，但当前信号强度中等，结合低波动积累后的方向选择概率，向上可能性略高。",
+    "key_factors": [
+      "EMA收敛待突破",
+      "RSI超卖反弹",
+      "MACD金叉"
+    ],
+    "risk_level": "medium",
+    "worst_case": -12.3,
+    "best_case": 34.2
+  },
+  "entry_price": 3354.9,
+  "target_time": "2025-11-07T18:38:00.0863+08:00",
+  "evaluated": true,
+  "actual_move": -2.1276342066827656,
+  "actual_high": 3363,
+  "actual_low": 3270.04,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:06.113737+08:00"
+}

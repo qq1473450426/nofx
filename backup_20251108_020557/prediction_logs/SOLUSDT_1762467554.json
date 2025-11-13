@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762467554",
+  "timestamp": "2025-11-07T06:19:14.08661+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.74,
+    "expected_move": -1.25,
+    "timeframe": "4h",
+    "confidence": "medium",
+    "reasoning": "市场处于强劲下行趋势，价格低于所有关键均线，波动率偏高但成交量低迷，显示反弹动能不足。尽管MACD出现金叉，但RSI仍处弱势区域，短期涨幅有限。账户夏普比率为负，系统整体胜率偏低，需下调预测置信度，但技术面仍支持进一步下跌。",
+    "key_factors": [
+      "跌破所有EMA均线",
+      "成交量低于均值",
+      "RSI弱势与MACD背离"
+    ],
+    "risk_level": "medium",
+    "worst_case": -3.5,
+    "best_case": 0.8
+  },
+  "entry_price": 155.96,
+  "target_time": "2025-11-07T10:19:14.08661+08:00",
+  "evaluated": true,
+  "actual_move": 0.6476019492177423,
+  "actual_high": 157.57,
+  "actual_low": 153.34,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:13.090533+08:00"
+}

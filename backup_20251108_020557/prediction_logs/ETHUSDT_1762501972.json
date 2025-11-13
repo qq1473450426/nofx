@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762501972",
+  "timestamp": "2025-11-07T15:52:52.093807+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.767653021048931,
+    "expected_move": 18.5,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "价格位于EMA均线群上方，短期趋势结构偏多，RSI处于中性区域具备上行空间。尽管市场情绪偏恐惧且波动率较低，但4小时级别已呈现稳定回升迹象。账户Sharpe比为负，需谨慎对待信号强度，结合历史胜率偏低现状，适度下调预测概率。当前成交量虽弱，但未出现明显抛压，突破方向或临近。",
+    "key_factors": [
+      "价格站稳均线群",
+      "RSI中性有空间",
+      "短期趋势转稳"
+    ],
+    "risk_level": "medium",
+    "worst_case": -12.3,
+    "best_case": 28.7
+  },
+  "entry_price": 3352.48,
+  "target_time": "2025-11-07T19:52:52.093807+08:00",
+  "evaluated": true,
+  "actual_move": -2.722760463895391,
+  "actual_high": 3359.29,
+  "actual_low": 3224.05,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:07.588455+08:00"
+}

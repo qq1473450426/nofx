@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762480753",
+  "timestamp": "2025-11-07T09:59:13.049665+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "down",
+    "probability": 0.74,
+    "expected_move": -1.85,
+    "timeframe": "4h",
+    "confidence": "medium",
+    "reasoning": "技术面显示价格处于强烈下行趋势，均线下方空头排列，且交易量萎缩表明反弹动能不足。尽管短期RSI有所回升，但MACD仍处死叉状态，下行压力犹存。结合账户夏普比率为负，历史胜率偏低，需谨慎对待多头信号，降低预测信心。综合判断下行动能占优，但幅度受限于低波动与中性资金费率。",
+    "key_factors": [
+      "强烈下行趋势",
+      "交易量萎缩",
+      "MACD死叉"
+    ],
+    "risk_level": "medium",
+    "worst_case": -3.2,
+    "best_case": 1.1
+  },
+  "entry_price": 3319.28,
+  "target_time": "2025-11-07T13:59:13.049664+08:00",
+  "evaluated": true,
+  "actual_move": 1.3894579547371686,
+  "actual_high": 3370,
+  "actual_low": 3302.6,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:01.622221+08:00"
+}

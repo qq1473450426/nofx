@@ -18,6 +18,7 @@ interface TradeOutcome {
   open_time: string;
   close_time: string;
   was_stop_loss: boolean;
+  close_reason?: string; // ✅ NEW: 平仓原因
 }
 
 interface SymbolPerformance {
@@ -614,6 +615,18 @@ export default function AILearning({ traderId }: AILearningProps) {
                         </span>
                       )}
                     </div>
+
+                    {/* ✅ NEW: 平仓原因 */}
+                    {trade.close_reason && (
+                      <div className="text-xs mt-2 p-2 rounded" style={{
+                        background: 'rgba(99, 102, 241, 0.1)',
+                        color: '#A5B4FC',
+                        borderLeft: '2px solid rgba(99, 102, 241, 0.4)'
+                      }}>
+                        <span style={{ color: '#818CF8', fontWeight: 'bold' }}>💡 </span>
+                        {trade.close_reason}
+                      </div>
+                    )}
 
                     <div className="text-xs mt-2 pt-2 border-t" style={{
                       color: '#64748B',

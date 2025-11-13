@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762494304",
+  "timestamp": "2025-11-07T13:45:04.410849+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.7676744363012813,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于强烈下行趋势，但短期RSI回升至中性区域且出现金叉信号，1小时和4小时涨势初现。尽管账户夏普比为负，历史胜率偏低，但当前多头动能增强，成交量虽低但未恶化。综合判断反弹概率较高，但受制于整体空头环境，上行空间有限。",
+    "key_factors": [
+      "短期多头动能增强",
+      "超卖后技术修复",
+      "整体趋势仍偏空"
+    ],
+    "risk_level": "high",
+    "worst_case": -2.1,
+    "best_case": 4.3
+  },
+  "entry_price": 157.46,
+  "target_time": "2025-11-07T17:45:04.410849+08:00",
+  "evaluated": true,
+  "actual_move": -1.9115965959608912,
+  "actual_high": 158.2,
+  "actual_low": 154.02,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:23:22.753834+08:00"
+}

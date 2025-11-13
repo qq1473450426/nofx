@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762457655",
+  "timestamp": "2025-11-07T03:34:15.235226+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.76,
+    "expected_move": -1.85,
+    "timeframe": "24h",
+    "confidence": "high",
+    "reasoning": "技术面显示SOL处于明显下行趋势，价格低于所有关键均线，且短期波动率上升，表明空头力量仍占优。尽管RSI接近超卖区域并出现小幅反弹迹象，但市场情绪偏熊，叠加整体加密市场恐惧情绪，限制反弹空间。账户风险方面，系统夏普比率为负，需谨慎对待收益预期，结合近期预测虽有成功但历史胜率偏低，因此适度调降信心。综合判断，下行概率仍高于反弹可能。",
+    "key_factors": [
+      "下行趋势持续",
+      "RSI接近超卖",
+      "市场情绪偏熊"
+    ],
+    "risk_level": "medium",
+    "worst_case": -3.2,
+    "best_case": 1.1
+  },
+  "entry_price": 157.06,
+  "target_time": "2025-11-08T03:34:15.235225+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

@@ -1,0 +1,32 @@
+{
+  "id": "SOLUSDT_1762999740",
+  "timestamp": "2025-11-13T10:09:00.359434+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.75,
+    "expected_move": -2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "Bearish MACD crossover, price below EMAs, and bearish social sentiment.",
+    "key_factors": [
+      "m\u003cms",
+      "p\u003ce20",
+      "p\u003ce50",
+      "social"
+    ],
+    "risk_level": "medium",
+    "worst_case": 1.1729800954022438,
+    "best_case": -5
+  },
+  "entry_price": 152.93,
+  "target_time": "2025-11-14T10:09:00.359434+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

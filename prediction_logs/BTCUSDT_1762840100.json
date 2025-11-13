@@ -1,0 +1,34 @@
+{
+  "id": "BTCUSDT_1762840100",
+  "timestamp": "2025-11-11T13:48:20.180109+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "down",
+    "probability": 0.7,
+    "expected_move": -2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "价格低于EMA20和EMA50，MACD为负，RSI在中性区域但市场情绪悲观，低波动率可能带来短期反弹机会，但趋势仍然向下。",
+    "key_factors": [
+      "price\u003cEMA20\u003cEMA50",
+      "MACD\u003c0",
+      "RSI7=40.01",
+      "volume_vs_avg=-70.39%",
+      "funding_rate=-0.0000102",
+      "sentiment=fear_greed=26, social=bearish"
+    ],
+    "risk_level": "medium",
+    "worst_case": -5,
+    "best_case": 0.5585915665431834
+  },
+  "entry_price": 105346.8,
+  "target_time": "2025-11-12T13:48:20.180108+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762458263",
+  "timestamp": "2025-11-07T03:44:23.002697+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.74,
+    "expected_move": -1.85,
+    "timeframe": "4h",
+    "confidence": "medium",
+    "reasoning": "市场处于明显下行趋势，价格低于所有关键均线，且RSI显示空头动能持续。尽管4小时出现短暂企稳，但整体动量仍偏弱，叠加BTC下行压力与市场情绪悲观，进一步压制反弹空间。账户夏普比率为负，历史胜率偏低，需下调预测信心，但技术面仍支持短期续跌。",
+    "key_factors": [
+      "关键均线空排",
+      "RSI弱势维持",
+      "BTC联动压制"
+    ],
+    "risk_level": "medium",
+    "worst_case": -3.2,
+    "best_case": 0.9
+  },
+  "entry_price": 156.41,
+  "target_time": "2025-11-07T07:44:23.002697+08:00",
+  "evaluated": true,
+  "actual_move": -1.1700019180359211,
+  "actual_high": 157.72,
+  "actual_low": 153.34,
+  "is_correct": true,
+  "accuracy": 0.632433469208606,
+  "evaluated_time": "2025-11-07T23:23:10.34133+08:00"
+}

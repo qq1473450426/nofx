@@ -8,6 +8,7 @@ import (
 	"nofx/logger"
 	"nofx/market"
 	"nofx/mcp"
+	"nofx/memory"
 	"nofx/pool"
 	"os"
 	"path/filepath"
@@ -18,9 +19,10 @@ import (
 // AutoTraderConfig 自动交易配置（简化版 - AI全权决策）
 type AutoTraderConfig struct {
 	// Trader标识
-	ID      string // Trader唯一标识（用于日志目录等）
-	Name    string // Trader显示名称
-	AIModel string // AI模型: "qwen" 或 "deepseek"
+	ID        string // Trader唯一标识（用于日志目录等）
+	Name      string // Trader显示名称
+	AIModel   string // AI模型: "qwen" 或 "deepseek"
+	QwenModel string // Qwen模型具体版本（qwen-plus/qwen-max等）
 
 	// 交易平台选择
 	Exchange string // "binance", "hyperliquid" 或 "aster"
@@ -79,6 +81,7 @@ type AutoTrader struct {
 	mcpClient             *mcp.Client
 	decisionLogger        *logger.DecisionLogger // 决策日志记录器
 	constraints           *TradingConstraints    // 交易硬约束管理器
+	memoryManager         *memory.Manager        // 🧠 记忆管理器（Sprint 1）
 	initialBalance        float64
 	dailyPnL              float64
 	lastResetTime         time.Time
@@ -87,6 +90,15 @@ type AutoTrader struct {
 	startTime             time.Time        // 系统启动时间
 	callCount             int              // AI调用次数
 	positionFirstSeenTime map[string]int64 // 持仓首次出现时间 (symbol_side -> timestamp毫秒)
+	lastPositionSnapshot  map[string]decision.PositionInfo
+	manualCloseTracker    map[string]time.Time // 手动/程序主动平仓的时间戳，用于与止损触发区分
+
+	// 山寨币异动扫描（WebSocket方案 - 只观察不交易）
+	altcoinWSMonitor       *market.AltcoinWSMonitor
+	altcoinScanner         *market.AltcoinScanner
+	altcoinLogger          *market.AltcoinSignalLogger
+	spotFuturesMonitor     *market.SpotFuturesMonitor  // 现货期货价差监控
+	altcoinScanEnabled     bool // 是否启用山寨币扫描
 }
 
 // NewAutoTrader 创建自动交易器
@@ -116,7 +128,10 @@ func NewAutoTrader(config AutoTraderConfig) (*AutoTrader, error) {
 	} else if config.UseQwen || config.AIModel == "qwen" {
 		// 使用Qwen
 		mcpClient.SetQwenAPIKey(config.QwenKey, "")
-		log.Printf("🤖 [%s] 使用阿里云Qwen AI", config.Name)
+		if config.QwenModel != "" {
+			mcpClient.Model = config.QwenModel
+		}
+		log.Printf("🤖 [%s] 使用阿里云Qwen AI (模型: %s)", config.Name, mcpClient.Model)
 	} else {
 		// 默认使用DeepSeek
 		mcpClient.SetDeepSeekAPIKey(config.DeepSeekKey)
@@ -171,10 +186,54 @@ func NewAutoTrader(config AutoTraderConfig) (*AutoTrader, error) {
 
 	// 初始化交易硬约束管理器
 	constraints := NewTradingConstraints()
-	log.Printf("🛡️ [%s] 硬约束已启用: 冷却期20分钟 | 日上限8次 | 时上限2次 | 最短持仓15分钟", config.Name)
+	log.Printf("🛡️ [%s] 硬约束已启用: 冷却期20分钟 | 日上限999次 | 时上限3次 | 最短持仓15分钟", config.Name)
+
+	// 🧠 初始化AI记忆系统（Sprint 1）
+	memoryManager, err := memory.NewManager(config.ID)
+	if err != nil {
+		return nil, fmt.Errorf("初始化记忆系统失败: %w", err)
+	}
 
 	// 🔧 从历史日志恢复周期编号（防止重启后周期编号混乱）
 	lastCycleNumber := recoverLastCycleNumber(logDir)
+
+	// 🔍 初始化山寨币异动扫描器（WebSocket方案 - 只观察不交易）
+	var altcoinWSMonitor *market.AltcoinWSMonitor
+	var altcoinScanner *market.AltcoinScanner
+	var altcoinLogger *market.AltcoinSignalLogger
+	var spotFuturesMonitor *market.SpotFuturesMonitor // 🆕 现货期货价差监控
+	altcoinScanEnabled := true // 🚀 启用WebSocket方案
+
+	if config.Exchange == "binance" && altcoinScanEnabled {
+		// 获取Binance客户端
+		if binanceTrader, ok := trader.(*FuturesTrader); ok {
+			// 初始化WebSocket监控器（实时获取市场数据，不消耗REST API）
+			altcoinWSMonitor = market.NewAltcoinWSMonitor()
+
+			// 初始化扫描器（用于分析异动信号）
+			altcoinScanner = market.NewAltcoinScanner(binanceTrader.client)
+
+			// 创建山寨币信号日志目录
+			altcoinLogDir := fmt.Sprintf("altcoin_logs/%s", config.ID)
+			var err error
+			altcoinLogger, err = market.NewAltcoinSignalLogger(altcoinLogDir)
+			if err != nil {
+				log.Printf("⚠️  创建山寨币日志失败: %v，将禁用扫描功能", err)
+				altcoinScanEnabled = false
+			} else {
+				log.Printf("🔍 [%s] 山寨币异动扫描已启用 (WebSocket方案 - 零API消耗)", config.Name)
+
+				// 🆕 初始化现货期货价差监控器（早期信号）
+				spotFuturesMonitor = market.NewSpotFuturesMonitor(
+					config.BinanceAPIKey,
+					config.BinanceSecretKey,
+					binanceTrader.client,
+					altcoinWSMonitor,
+				)
+				log.Printf("📊 [%s] 现货期货价差监控已启用（捕捉DEX/现货先行信号）", config.Name)
+			}
+		}
+	}
 
 	return &AutoTrader{
 		id:                    config.ID,
@@ -186,12 +245,20 @@ func NewAutoTrader(config AutoTraderConfig) (*AutoTrader, error) {
 		mcpClient:             mcpClient,
 		decisionLogger:        decisionLogger,
 		constraints:           constraints,
+		memoryManager:         memoryManager, // 🧠 记忆系统
 		initialBalance:        config.InitialBalance,
 		lastResetTime:         time.Now(),
 		startTime:             time.Now(),
 		callCount:             lastCycleNumber, // 从历史日志恢复
 		isRunning:             false,
 		positionFirstSeenTime: make(map[string]int64),
+		lastPositionSnapshot:  make(map[string]decision.PositionInfo),
+		manualCloseTracker:    make(map[string]time.Time),
+		altcoinWSMonitor:      altcoinWSMonitor,      // WebSocket监控器
+		altcoinScanner:        altcoinScanner,        // 山寨币扫描器
+		altcoinLogger:         altcoinLogger,         // 信号日志器
+		spotFuturesMonitor:    spotFuturesMonitor,    // 🆕 现货期货价差监控
+		altcoinScanEnabled:    altcoinScanEnabled,
 	}, nil
 }
 
@@ -202,6 +269,21 @@ func (at *AutoTrader) Run() error {
 	log.Printf("💰 初始余额: %.2f USDT", at.initialBalance)
 	log.Printf("⚙️  扫描间隔: %v", at.config.ScanInterval)
 	log.Println("🤖 AI将全权决定杠杆、仓位大小、止损止盈等参数")
+
+	// 启动山寨币WebSocket监控器（独立运行，实时获取市场数据）
+	if at.altcoinScanEnabled && at.altcoinWSMonitor != nil {
+		log.Println("🔌 启动WebSocket监控器（实时追踪所有USDT合约）...")
+		if err := at.altcoinWSMonitor.Start(); err != nil {
+			log.Printf("⚠️  WebSocket启动失败: %v，将禁用扫描功能", err)
+			at.altcoinScanEnabled = false
+		}
+	}
+
+	// 启动山寨币异动扫描goroutine（独立运行，每30分钟扫描一次）
+	if at.altcoinScanEnabled && at.altcoinScanner != nil {
+		log.Println("🔍 启动山寨币异动扫描（每30分钟扫描一次WebSocket提供的Top50）...")
+		go at.runAltcoinScanner()
+	}
 
 	ticker := time.NewTicker(at.config.ScanInterval)
 	defer ticker.Stop()
@@ -220,12 +302,28 @@ func (at *AutoTrader) Run() error {
 		}
 	}
 
+	// 关闭WebSocket监控器
+	if at.altcoinWSMonitor != nil {
+		at.altcoinWSMonitor.Stop()
+	}
+
+	// 关闭日志文件
+	if at.altcoinLogger != nil {
+		at.altcoinLogger.Close()
+	}
+
 	return nil
 }
 
 // Stop 停止自动交易
 func (at *AutoTrader) Stop() {
 	at.isRunning = false
+
+	// 停止WebSocket监控器
+	if at.altcoinWSMonitor != nil {
+		at.altcoinWSMonitor.Stop()
+	}
+
 	log.Println("⏹ 自动交易系统停止")
 }
 
@@ -269,6 +367,9 @@ func (at *AutoTrader) runCycle() error {
 		at.decisionLogger.LogDecision(record)
 		return fmt.Errorf("构建交易上下文失败: %w", err)
 	}
+
+	// 🧠 注入AI记忆（Sprint 1）
+	ctx.MemoryPrompt = at.memoryManager.GetContextPrompt()
 
 	// 保存账户状态快照
 	record.AccountState = logger.AccountSnapshot{
@@ -361,7 +462,7 @@ func (at *AutoTrader) runCycle() error {
 
 		// 打印AI思维链（即使有错误）
 		if decision != nil && decision.CoTTrace != "" {
-			log.Printf("\n" + strings.Repeat("-", 70))
+			log.Print("\n" + strings.Repeat("-", 70))
 			log.Println("💭 AI思维链分析（错误情况）:")
 			log.Println(strings.Repeat("-", 70))
 			log.Println(decision.CoTTrace)
@@ -409,6 +510,7 @@ func (at *AutoTrader) runCycle() error {
 			Price:     0,
 			Timestamp: time.Now(),
 			Success:   false,
+			Reasoning: d.Reasoning, // ✅ NEW: 添加平仓原因
 		}
 
 		if err := at.executeDecisionWithRecord(&d, &actionRecord); err != nil {
@@ -418,6 +520,15 @@ func (at *AutoTrader) runCycle() error {
 		} else {
 			actionRecord.Success = true
 			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("✓ %s %s 成功", d.Symbol, d.Action))
+
+			// 🧠 记录到AI记忆（Sprint 1）
+			if d.Action != "hold" && d.Action != "wait" {
+				tradeEntry := at.buildTradeEntry(&d, &actionRecord, ctx)
+				if err := at.memoryManager.AddTrade(tradeEntry); err != nil {
+					log.Printf("⚠️  记录交易到记忆失败: %v", err)
+				}
+			}
+
 			// 成功执行后短暂延迟
 			time.Sleep(1 * time.Second)
 		}
@@ -471,6 +582,8 @@ func (at *AutoTrader) buildTradingContext() (*decision.Context, error) {
 	// 当前持仓的key集合（用于清理已平仓的记录）
 	currentPositionKeys := make(map[string]bool)
 
+	newSnapshot := make(map[string]decision.PositionInfo)
+
 	for _, pos := range positions {
 		symbol := pos["symbol"].(string)
 		side := pos["side"].(string)
@@ -512,7 +625,14 @@ func (at *AutoTrader) buildTradingContext() (*decision.Context, error) {
 		}
 		updateTime := at.positionFirstSeenTime[posKey]
 
-		positionInfos = append(positionInfos, decision.PositionInfo{
+		// 🆕 从TradingConstraints获取真实的开仓时间
+		openTime := at.constraints.GetPositionOpenTime(symbol, side)
+		if openTime.IsZero() {
+			// 如果constraints中没有记录（可能是系统重启前的持仓），使用估算的时间
+			openTime = time.UnixMilli(updateTime)
+		}
+
+		posInfo := decision.PositionInfo{
 			Symbol:           symbol,
 			Side:             side,
 			EntryPrice:       entryPrice,
@@ -524,13 +644,38 @@ func (at *AutoTrader) buildTradingContext() (*decision.Context, error) {
 			LiquidationPrice: liquidationPrice,
 			MarginUsed:       marginUsed,
 			UpdateTime:       updateTime,
-		})
+			OpenTime:         openTime, // 🆕 开仓时间
+		}
+
+		positionInfos = append(positionInfos, posInfo)
+		newSnapshot[posKey] = posInfo
 	}
+
+	// 检测已消失的持仓（例如止损/强平生效）
+	for key, last := range at.lastPositionSnapshot {
+		if !currentPositionKeys[key] {
+			if ts, ok := at.manualCloseTracker[key]; ok && time.Since(ts) < 2*time.Minute {
+				log.Printf("📤 持仓已主动平仓: %s %s | 入场价 %.4f | 上次价格 %.4f | 未实现盈亏 %.2f%%",
+					last.Symbol, strings.ToUpper(last.Side), last.EntryPrice, last.MarkPrice, last.UnrealizedPnLPct)
+				delete(at.manualCloseTracker, key)
+			} else {
+				log.Printf("🚨 检测到持仓消失，可能为止损/强平触发: %s %s | 入场价 %.4f | 上次价格 %.4f | 未实现盈亏 %.2f%%",
+					last.Symbol, strings.ToUpper(last.Side), last.EntryPrice, last.MarkPrice, last.UnrealizedPnLPct)
+			}
+		}
+	}
+	at.lastPositionSnapshot = newSnapshot
 
 	// 清理已平仓的持仓记录
 	for key := range at.positionFirstSeenTime {
 		if !currentPositionKeys[key] {
 			delete(at.positionFirstSeenTime, key)
+		}
+	}
+
+	for key, ts := range at.manualCloseTracker {
+		if time.Since(ts) > 10*time.Minute {
+			delete(at.manualCloseTracker, key)
 		}
 	}
 
@@ -579,6 +724,12 @@ func (at *AutoTrader) buildTradingContext() (*decision.Context, error) {
 		performance = nil
 	}
 
+	// 🧠 获取交易员记忆（实际交易历史）
+	var memoryPrompt string
+	if at.memoryManager != nil {
+		memoryPrompt = at.memoryManager.GetContextPrompt()
+	}
+
 	// 6. 构建上下文
 	ctx := &decision.Context{
 		CurrentTime:     time.Now().Format("2006-01-02 15:04:05"),
@@ -597,7 +748,8 @@ func (at *AutoTrader) buildTradingContext() (*decision.Context, error) {
 		},
 		Positions:      positionInfos,
 		CandidateCoins: candidateCoins,
-		Performance:    performance, // 添加历史表现分析
+		Performance:    performance,   // 添加历史表现分析
+		MemoryPrompt:   memoryPrompt, // 🧠 注入交易员记忆
 	}
 
 	return ctx, nil
@@ -913,6 +1065,10 @@ func (at *AutoTrader) executeCloseLongWithRecord(decision *decision.Decision, ac
 	// 🛡️ 记录平仓到硬约束管理器（设置冷却期）
 	at.constraints.RecordClosePosition(decision.Symbol, "long")
 
+	// 标记为手动/策略主动平仓，防止后续被误判为止损
+	posKey := decision.Symbol + "_long"
+	at.manualCloseTracker[posKey] = time.Now()
+
 	return nil
 }
 
@@ -949,6 +1105,10 @@ func (at *AutoTrader) executeCloseShortWithRecord(decision *decision.Decision, a
 	// 🛡️ 记录平仓到硬约束管理器（设置冷却期）
 	at.constraints.RecordClosePosition(decision.Symbol, "short")
 
+	// 标记为手动/策略主动平仓，防止后续被误判为止损
+	posKey := decision.Symbol + "_short"
+	at.manualCloseTracker[posKey] = time.Now()
+
 	return nil
 }
 
@@ -970,6 +1130,11 @@ func (at *AutoTrader) GetAIModel() string {
 // GetDecisionLogger 获取决策日志记录器
 func (at *AutoTrader) GetDecisionLogger() *logger.DecisionLogger {
 	return at.decisionLogger
+}
+
+// GetMemoryManager 获取记忆管理器
+func (at *AutoTrader) GetMemoryManager() *memory.Manager {
+	return at.memoryManager
 }
 
 // GetStatus 获取系统状态（用于API）
@@ -1216,3 +1381,262 @@ func recoverLastCycleNumber(logDir string) int {
 	return maxCycleNumber
 }
 
+// runAltcoinScanner 运行山寨币异动扫描循环（独立goroutine）
+func (at *AutoTrader) runAltcoinScanner() {
+	log.Printf("🔍 山寨币异动扫描器已启动")
+
+	// 扫描间隔：30分钟（建议值，大幅降低API消耗）
+	scanInterval := 30 * time.Minute
+	ticker := time.NewTicker(scanInterval)
+	defer ticker.Stop()
+
+	scanCount := 0
+
+	// 首次延迟1分钟执行（等待WebSocket稳定和Top50列表初始化）
+	time.Sleep(1 * time.Minute)
+
+	for at.isRunning {
+		scanCount++
+		startTime := time.Now()
+
+		// 从WebSocket获取Top50列表
+		top50Symbols := at.altcoinWSMonitor.GetTop50Symbols()
+		if len(top50Symbols) == 0 {
+			log.Printf("⚠️ [扫描 #%d] Top50列表为空，跳过本次扫描（WebSocket可能尚未就绪）", scanCount)
+			// 等待下次扫描
+			select {
+			case <-ticker.C:
+				continue
+			case <-time.After(scanInterval):
+				if !at.isRunning {
+					return
+				}
+				continue
+			}
+		}
+
+		log.Printf("📊 [扫描 #%d] 使用WebSocket提供的Top%d币种", scanCount, len(top50Symbols))
+
+		// 🆕 先扫描现货期货价差（早期信号 - 捕捉DEX/现货先行）
+		if at.spotFuturesMonitor != nil {
+			log.Printf("🔍 [扫描 #%d] 开始扫描现货期货价差...", scanCount)
+			sfSignals, sfErr := at.spotFuturesMonitor.ScanPriceDifferences(top50Symbols)
+			if sfErr != nil {
+				log.Printf("⚠️  [扫描 #%d] 现货期货扫描失败: %v", scanCount, sfErr)
+			} else if len(sfSignals) > 0 {
+				log.Printf("✅ [扫描 #%d] 发现 %d 个现货期货价差信号（早期信号）", scanCount, len(sfSignals))
+				for _, sfSignal := range sfSignals {
+					// 格式化输出信号
+					log.Printf("  🚨 %s | 现货$%.2f > 期货$%.2f (价差%.2f%%) | %d星 | %s",
+						sfSignal.Symbol,
+						sfSignal.SpotPrice,
+						sfSignal.FuturesPrice,
+						sfSignal.PriceDiffPct,
+						sfSignal.Confidence,
+						sfSignal.SuggestedAction,
+					)
+					log.Printf("      原因: %s", sfSignal.Reasoning)
+				}
+			} else {
+				log.Printf("✅ [扫描 #%d] 未发现现货期货价差信号", scanCount)
+			}
+		}
+
+		// 执行扫描（使用WebSocket提供的Top50列表）
+		signals, err := at.altcoinScanner.ScanTop50(top50Symbols)
+		if err != nil {
+			log.Printf("❌ [扫描 #%d] 山寨币扫描失败: %v", scanCount, err)
+		} else {
+			// 记录每个信号
+			for _, signal := range signals {
+				at.altcoinLogger.LogSignal(signal)
+
+				// 保存JSON（供后续分析）
+				if err := at.altcoinLogger.SaveSignalJSON(signal); err != nil {
+					log.Printf("⚠️  保存信号JSON失败: %v", err)
+				}
+			}
+
+			// 记录扫描摘要
+			duration := time.Since(startTime)
+			scannedCount := at.altcoinScanner.GetLastScannedCount()
+			at.altcoinLogger.LogScanSummary(scanCount, scannedCount, len(signals), duration)
+		}
+
+		// 每小时输出统计（30分钟 × 2 = 1小时）
+		if scanCount%2 == 0 {
+			stats := at.altcoinScanner.GetStatistics()
+			at.altcoinLogger.LogHourlyStats(stats)
+		}
+
+		// 等待下次扫描
+		select {
+		case <-ticker.C:
+			// 继续下一次扫描
+		case <-time.After(scanInterval):
+			// 超时保护
+			if !at.isRunning {
+				return
+			}
+		}
+	}
+
+	log.Printf("🛑 山寨币异动扫描器已停止")
+}
+
+// buildTradeEntry 构建交易记录条目（用于AI记忆系统）
+func (at *AutoTrader) buildTradeEntry(
+	decision *decision.Decision,
+	actionRecord *logger.DecisionAction,
+	ctx *decision.Context,
+) memory.TradeEntry {
+	// 确定action类型和side
+	action := "hold"
+	side := ""
+	if decision.Action == "open_long" {
+		action = "open"
+		side = "long"
+	} else if decision.Action == "open_short" {
+		action = "open"
+		side = "short"
+	} else if decision.Action == "close_long" {
+		action = "close"
+		side = "long"
+	} else if decision.Action == "close_short" {
+		action = "close"
+		side = "short"
+	}
+
+	// 获取市场体制（Sprint 1使用简化逻辑）
+	marketRegime := "unknown"
+	regimeStage := "mid" // 默认mid
+
+	// 🔍 尝试从市场数据推断体制（简化版）
+	if btcData, ok := ctx.MarketDataMap["BTCUSDT"]; ok && btcData != nil && btcData.LongerTermContext != nil {
+		// 简单的趋势判断：价格 vs EMA50
+		if btcData.CurrentPrice > btcData.LongerTermContext.EMA50 {
+			if btcData.PriceChange4h > 2.0 {
+				marketRegime = "markup" // 价格突破EMA50且4h涨幅>2% = 上涨阶段
+			} else {
+				marketRegime = "accumulation" // 价格在EMA50上方但涨幅不大 = 积累阶段
+			}
+		} else {
+			if btcData.PriceChange4h < -2.0 {
+				marketRegime = "markdown" // 价格跌破EMA50且4h跌幅>2% = 下跌阶段
+			} else {
+				marketRegime = "distribution" // 价格在EMA50下方但跌幅不大 = 分配阶段
+			}
+		}
+	}
+
+	// 提取持仓信息（如果有）
+	var entryPrice, exitPrice, positionPct float64
+	var holdMinutes int
+	var returnPct float64
+	var result string
+
+	if action == "close" {
+		// 平仓：从现有持仓中获取信息
+		for _, pos := range ctx.Positions {
+			if pos.Symbol == decision.Symbol && pos.Side == side {
+				entryPrice = pos.EntryPrice
+				exitPrice = actionRecord.Price
+				positionPct = (pos.MarginUsed / ctx.Account.TotalEquity) * 100
+
+				// 计算持仓时长（分钟）
+				if !pos.OpenTime.IsZero() {
+					holdMinutes = int(time.Since(pos.OpenTime).Minutes())
+				}
+
+				// 计算收益率和结果
+				returnPct = pos.UnrealizedPnLPct
+				if returnPct > 0 {
+					result = "win"
+				} else if returnPct < -0.1 { // 亏损>0.1%才算loss
+					result = "loss"
+				} else {
+					result = "break_even"
+				}
+				break
+			}
+		}
+	} else if action == "open" {
+		// 开仓：记录开仓信息，结果为空（需要等待平仓）
+		entryPrice = actionRecord.Price
+		positionPct = (decision.PositionSizeUSD / float64(decision.Leverage)) / ctx.Account.TotalEquity * 100
+	}
+
+	// 提取信号（Sprint 1简化：从reasoning中提取关键词）
+	signals := extractSignalsFromReasoning(decision.Reasoning)
+
+	// 🔍 尝试从reasoning中提取预测信息
+	predictedDirection := ""
+	predictedProb := 0.0
+	predictedMove := 0.0
+
+	// 简单的预测提取：查找"预测"关键词
+	if strings.Contains(decision.Reasoning, "预测: up") || strings.Contains(decision.Reasoning, "预测:up") {
+		predictedDirection = "up"
+		// 尝试提取概率（格式：概率65%）
+		if idx := strings.Index(decision.Reasoning, "概率"); idx != -1 {
+			var prob float64
+			fmt.Sscanf(decision.Reasoning[idx:], "概率%f%%", &prob)
+			predictedProb = prob / 100.0
+		}
+	} else if strings.Contains(decision.Reasoning, "预测: down") || strings.Contains(decision.Reasoning, "预测:down") {
+		predictedDirection = "down"
+		if idx := strings.Index(decision.Reasoning, "概率"); idx != -1 {
+			var prob float64
+			fmt.Sscanf(decision.Reasoning[idx:], "概率%f%%", &prob)
+			predictedProb = prob / 100.0
+		}
+	}
+
+	return memory.TradeEntry{
+		Cycle:              at.callCount,
+		Timestamp:          time.Now(),
+		MarketRegime:       marketRegime,
+		RegimeStage:        regimeStage,
+		Action:             action,
+		Symbol:             decision.Symbol,
+		Side:               side,
+		Signals:            signals,
+		Reasoning:          decision.Reasoning,
+		PredictedDirection: predictedDirection,
+		PredictedProb:      predictedProb,
+		PredictedMove:      predictedMove,
+		EntryPrice:         entryPrice,
+		ExitPrice:          exitPrice,
+		PositionPct:        positionPct,
+		Leverage:           decision.Leverage,
+		HoldMinutes:        holdMinutes,
+		ReturnPct:          returnPct,
+		Result:             result,
+	}
+}
+
+// extractSignalsFromReasoning 从reasoning中提取信号关键词
+func extractSignalsFromReasoning(reasoning string) []string {
+	signals := []string{}
+
+	// 常见信号关键词
+	keywords := []string{
+		"MACD", "RSI", "EMA", "均线", "突破", "跌破",
+		"金叉", "死叉", "超买", "超卖", "背离",
+		"趋势", "震荡", "支撑", "阻力", "放量",
+	}
+
+	reasoningLower := strings.ToLower(reasoning)
+	for _, keyword := range keywords {
+		if strings.Contains(reasoningLower, strings.ToLower(keyword)) {
+			signals = append(signals, keyword)
+		}
+	}
+
+	// 最多保留5个信号
+	if len(signals) > 5 {
+		signals = signals[:5]
+	}
+
+	return signals
+}

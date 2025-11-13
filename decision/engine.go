@@ -15,17 +15,18 @@ import (
 
 // PositionInfo 持仓信息
 type PositionInfo struct {
-	Symbol           string  `json:"symbol"`
-	Side             string  `json:"side"` // "long" or "short"
-	EntryPrice       float64 `json:"entry_price"`
-	MarkPrice        float64 `json:"mark_price"`
-	Quantity         float64 `json:"quantity"`
-	Leverage         int     `json:"leverage"`
-	UnrealizedPnL    float64 `json:"unrealized_pnl"`
-	UnrealizedPnLPct float64 `json:"unrealized_pnl_pct"`
-	LiquidationPrice float64 `json:"liquidation_price"`
-	MarginUsed       float64 `json:"margin_used"`
-	UpdateTime       int64   `json:"update_time"` // 持仓更新时间戳（毫秒）
+	Symbol           string    `json:"symbol"`
+	Side             string    `json:"side"` // "long" or "short"
+	EntryPrice       float64   `json:"entry_price"`
+	MarkPrice        float64   `json:"mark_price"`
+	Quantity         float64   `json:"quantity"`
+	Leverage         int       `json:"leverage"`
+	UnrealizedPnL    float64   `json:"unrealized_pnl"`
+	UnrealizedPnLPct float64   `json:"unrealized_pnl_pct"`
+	LiquidationPrice float64   `json:"liquidation_price"`
+	MarginUsed       float64   `json:"margin_used"`
+	UpdateTime       int64     `json:"update_time"`  // 持仓更新时间戳（毫秒）
+	OpenTime         time.Time `json:"open_time"`    // 🆕 开仓时间（用于判断持仓时长）
 }
 
 // AccountInfo 账户信息
@@ -68,6 +69,7 @@ type Context struct {
 	Performance     interface{}             `json:"-"` // 历史表现分析（logger.PerformanceAnalysis）
 	BTCETHLeverage  int                     `json:"-"` // BTC/ETH杠杆倍数（从配置读取）
 	AltcoinLeverage int                     `json:"-"` // 山寨币杠杆倍数（从配置读取）
+	MemoryPrompt    string                  `json:"-"` // 🧠 AI记忆提示（Sprint 1）
 }
 
 // Decision AI的交易决策
@@ -141,6 +143,8 @@ func convertAgentDecisions(agentDecisions []agents.Decision) []Decision {
 }
 
 // GetFullDecisionMonolithic 获取AI的完整交易决策（旧版单一prompt方式，保留作为备份）
+// ⚠️ 注意：此函数当前未被使用，系统已切换到Multi-Agent架构（GetFullDecision）
+// 保留此函数作为应急回退方案，如需切换回旧版，修改 trader/auto_trader.go:340
 func GetFullDecisionMonolithic(ctx *Context, mcpClient *mcp.Client) (*FullDecision, error) {
 	// 1. 为所有币种获取市场数据
 	if err := fetchMarketDataForContext(ctx); err != nil {
@@ -219,6 +223,7 @@ func convertToAgentContext(ctx *Context) *agents.Context {
 		Performance:     ctx.Performance,
 		BTCETHLeverage:  ctx.BTCETHLeverage,
 		AltcoinLeverage: ctx.AltcoinLeverage,
+		MemoryPrompt:    ctx.MemoryPrompt, // 🧠 传递AI记忆
 	}
 }
 
@@ -321,6 +326,8 @@ func calculateMaxCandidates(ctx *Context) int {
 }
 
 // buildSystemPrompt 构建 System Prompt（固定规则，可缓存）
+// ⚠️ 注意：此函数仅被GetFullDecisionMonolithic使用（旧版备份），当前系统不再调用
+// Multi-Agent架构中，每个Agent有独立的prompt（见decision/agents/目录）
 func buildSystemPrompt(accountEquity float64, btcEthLeverage, altcoinLeverage int) string {
 	var sb strings.Builder
 

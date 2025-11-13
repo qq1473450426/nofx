@@ -1,0 +1,31 @@
+{
+  "id": "XRPUSDT_1762313178",
+  "timestamp": "2025-11-05T11:26:18.637178+08:00",
+  "symbol": "XRPUSDT",
+  "prediction": {
+    "symbol": "XRPUSDT",
+    "direction": "down",
+    "probability": 0.72,
+    "expected_move": -2.8,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price is below all key EMAs with strong bearish alignment, indicating sustained selling pressure. Despite short-term bounce and positive MACD, RSI near overbought without breakout suggests exhaustion. High volume on flat price action indicates distribution, while extreme fear supports further downside in weak sentiment environment.",
+    "key_factors": [
+      "EMA_20_50_200_bearish_alignment",
+      "RSI_near_overbought_without_breakout",
+      "high_volume_distribution_pattern"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 2.234,
+  "target_time": "2025-11-05T15:26:18.637177+08:00",
+  "evaluated": true,
+  "actual_move": 0.004476275738594943,
+  "actual_high": 2.2594,
+  "actual_low": 2.2255,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:58:16.310769+08:00"
+}

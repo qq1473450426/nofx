@@ -4,6 +4,7 @@ import { api } from './lib/api';
 import { EquityChart } from './components/EquityChart';
 import { CompetitionPage } from './components/CompetitionPage';
 import AILearning from './components/AILearning';
+import { AIMemory } from './components/AIMemory';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { t, type Language } from './i18n/translations';
 import type {
@@ -340,6 +341,8 @@ function TraderDetailsPage({
   lastUpdate: string;
   language: Language;
 }) {
+  const [rightPanelTab, setRightPanelTab] = useState<'decisions' | 'memory'>('decisions');
+
   if (!selectedTrader) {
     return (
       <div className="space-y-6">
@@ -423,8 +426,8 @@ function TraderDetailsPage({
         />
         <StatCard
           title={t('positions', language)}
-          value={`${account?.position_count || 0}`}
-          subtitle={`${t('margin', language)}: ${account?.margin_used_pct?.toFixed(1) || '0.0'}%`}
+          value={`${account?.position_count || 0}/3`}
+          subtitle={`${t('margin', language)}: ${account?.margin_used_pct?.toFixed(1) || '0.0'}% | 可开仓: ${3 - (account?.position_count || 0)}`}
         />
       </div>
 
@@ -514,38 +517,58 @@ function TraderDetailsPage({
         </div>
         {/* 左侧结束 */}
 
-        {/* 右侧：Recent Decisions - 卡片容器 */}
+        {/* 右侧：Recent Decisions / AI Memory - 卡片容器 */}
         <div className="binance-card p-6 animate-slide-in h-fit lg:sticky lg:top-24 lg:max-h-[calc(100vh-120px)]" style={{ animationDelay: '0.2s' }}>
-          {/* 标题 */}
-          <div className="flex items-center gap-3 mb-5 pb-4 border-b" style={{ borderColor: '#2B3139' }}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{
-              background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
-              boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
-            }}>
-              🧠
-            </div>
-            <div>
-              <h2 className="text-xl font-bold" style={{ color: '#EAECEF' }}>{t('recentDecisions', language)}</h2>
-              {decisions && decisions.length > 0 && (
-                <div className="text-xs" style={{ color: '#848E9C' }}>
-                  {t('lastCycles', language, { count: decisions.length })}
-                </div>
-              )}
-            </div>
+          {/* Tab切换 */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => setRightPanelTab('decisions')}
+              className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                rightPanelTab === 'decisions' ? '' : 'opacity-60 hover:opacity-80'
+              }`}
+              style={rightPanelTab === 'decisions'
+                ? { background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)', color: '#fff' }
+                : { background: '#1E2329', color: '#848E9C' }
+              }
+            >
+              <span className="mr-2">🧠</span>
+              {language === 'zh' ? '最近决策' : 'Recent Decisions'}
+            </button>
+            <button
+              onClick={() => setRightPanelTab('memory')}
+              className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                rightPanelTab === 'memory' ? '' : 'opacity-60 hover:opacity-80'
+              }`}
+              style={rightPanelTab === 'memory'
+                ? { background: 'linear-gradient(135deg, #F0B90B 0%, #FCD535 100%)', color: '#000' }
+                : { background: '#1E2329', color: '#848E9C' }
+              }
+            >
+              <span className="mr-2">📝</span>
+              {language === 'zh' ? 'AI记忆' : 'AI Memory'}
+            </button>
           </div>
 
-          {/* 决策列表 - 可滚动 */}
-          <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-            {decisions && decisions.length > 0 ? (
-              decisions.map((decision, i) => (
-                <DecisionCard key={i} decision={decision} language={language} />
-              ))
-            ) : (
-              <div className="py-16 text-center">
-                <div className="text-6xl mb-4 opacity-30">🧠</div>
-                <div className="text-lg font-semibold mb-2" style={{ color: '#EAECEF' }}>{t('noDecisionsYet', language)}</div>
-                <div className="text-sm" style={{ color: '#848E9C' }}>{t('aiDecisionsWillAppear', language)}</div>
+          {/* 内容区 - 可滚动 */}
+          <div className="overflow-y-auto pr-2" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+            {rightPanelTab === 'decisions' ? (
+              // 决策列表
+              <div className="space-y-4">
+                {decisions && decisions.length > 0 ? (
+                  decisions.map((decision, i) => (
+                    <DecisionCard key={i} decision={decision} language={language} />
+                  ))
+                ) : (
+                  <div className="py-16 text-center">
+                    <div className="text-6xl mb-4 opacity-30">🧠</div>
+                    <div className="text-lg font-semibold mb-2" style={{ color: '#EAECEF' }}>{t('noDecisionsYet', language)}</div>
+                    <div className="text-sm" style={{ color: '#848E9C' }}>{t('aiDecisionsWillAppear', language)}</div>
+                  </div>
+                )}
               </div>
+            ) : (
+              // AI记忆
+              <AIMemory traderId={selectedTrader.trader_id} language={language} />
             )}
           </div>
         </div>

@@ -1,0 +1,32 @@
+{
+  "id": "SOLUSDT_1762898369",
+  "timestamp": "2025-11-12T05:59:29.90123+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.7,
+    "expected_move": -2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "强下行趋势，价格低于EMA20和EMA50，MACD为负，RSI在39.34，市场情绪悲观。成交量低，流动性差。",
+    "key_factors": [
+      "价格低于EMA20和EMA50",
+      "MACD为负",
+      "RSI在39.34",
+      "市场情绪悲观"
+    ],
+    "risk_level": "medium",
+    "worst_case": -5,
+    "best_case": 0.9152513286057359
+  },
+  "entry_price": 156.2,
+  "target_time": "2025-11-13T05:59:29.901229+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

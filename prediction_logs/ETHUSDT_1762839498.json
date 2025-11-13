@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762839498",
+  "timestamp": "2025-11-11T13:38:18.078241+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "Oversold RSI suggests a short-term bounce, but overall trend remains bearish.",
+    "key_factors": [
+      "RSI7=28.49 (oversold)",
+      "Price\u003cEMA20, EMA50, EMA200",
+      "MACD=-12.56"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 3550.5,
+  "target_time": "2025-11-12T13:38:18.07824+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

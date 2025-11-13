@@ -1,134 +1,93 @@
+#!/usr/bin/env python3
+"""分析开平仓操作细节"""
+
 import json
-import os
+from pathlib import Path
 from datetime import datetime
 
-# 读取所有决策日志
-log_dir = "decision_logs/binance"
-files = sorted([f for f in os.listdir(log_dir) if f.endswith('.json')])
+LOG_DIR = "/Users/sunjiaqiang/nofx/decision_logs/binance_live_qwen"
 
-# 追踪持仓
-open_positions = {}  # symbol_side -> {openPrice, openTime, quantity, leverage}
-trades = []
+def parse_timestamp(filename):
+    parts = filename.split('_')
+    date = parts[1]
+    time = parts[2]
+    return datetime.strptime(f"{date}_{time}", "%Y%m%d_%H%M%S")
 
-for filename in files:
-    filepath = os.path.join(log_dir, filename)
-    try:
-        with open(filepath, 'r') as f:
-            record = json.load(f)
-        
-        if not record.get('success'):
-            continue
-            
-        for action in record.get('decisions', []):
-            if not action.get('success'):
-                continue
-            
-            symbol = action.get('symbol')
-            act = action.get('action')
-            price = action.get('price', 0)
-            timestamp = action.get('timestamp', '')
-            quantity = action.get('quantity', 0)
-            leverage = action.get('leverage', 1)
-            
-            if act in ['open_long', 'open_short']:
-                side = 'long' if 'long' in act else 'short'
-                pos_key = f"{symbol}_{side}"
-                open_positions[pos_key] = {
-                    'openPrice': price,
-                    'openTime': timestamp,
-                    'quantity': quantity,
-                    'leverage': leverage,
-                    'side': side
-                }
-            
-            elif act in ['close_long', 'close_short']:
-                side = 'long' if 'long' in act else 'short'
-                pos_key = f"{symbol}_{side}"
-                
-                if pos_key in open_positions:
-                    open_pos = open_positions[pos_key]
-                    open_price = open_pos['openPrice']
-                    quantity = open_pos['quantity']
-                    leverage = open_pos['leverage']
-                    
-                    # 计算盈亏
-                    if side == 'long':
-                        pnl_pct = ((price - open_price) / open_price) * 100
-                    else:
-                        pnl_pct = ((open_price - price) / open_price) * 100
-                    
-                    # 计算实际盈亏USDT
-                    position_value = quantity * open_price
-                    pnl_usdt = position_value * (pnl_pct / 100) * leverage
-                    
+def analyze_trades(files, label):
+    print(f"\n{'='*80}")
+    print(f"{label} - 交易操作分析")
+    print(f"{'='*80}")
+
+    trades = []
+
+    for file in files:
+        try:
+            with open(file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            decisions = data.get('decisions', [])
+
+            for dec in decisions:
+                action = dec.get('action', '')
+                if action in ['open_long', 'open_short', 'close_long', 'close_short']:
                     trades.append({
-                        'symbol': symbol,
-                        'side': side,
-                        'open_price': open_price,
-                        'close_price': price,
-                        'pnl_pct': pnl_pct,
-                        'pnl_usdt': pnl_usdt,
-                        'open_time': open_pos['openTime'],
-                        'close_time': timestamp
+                        'file': Path(file).name,
+                        'timestamp': dec.get('timestamp', ''),
+                        'action': action,
+                        'symbol': dec.get('symbol', ''),
+                        'reasoning': dec.get('reasoning', ''),
+                        'price': dec.get('price', 0),
+                        'quantity': dec.get('quantity', 0)
                     })
-                    
-                    del open_positions[pos_key]
-    except:
-        continue
+        except Exception as e:
+            pass
 
-# 统计
-total = len(trades)
-wins = sum(1 for t in trades if t['pnl_usdt'] > 0)
-losses = sum(1 for t in trades if t['pnl_usdt'] <= 0)
-win_rate = (wins / total * 100) if total > 0 else 0
+    if not trades:
+        print("无开平仓操作")
+        return
 
-total_win = sum(t['pnl_usdt'] for t in trades if t['pnl_usdt'] > 0)
-total_loss = sum(t['pnl_usdt'] for t in trades if t['pnl_usdt'] <= 0)
-avg_win = (total_win / wins) if wins > 0 else 0
-avg_loss = (total_loss / losses) if losses > 0 else 0
+    print(f"\n总共{len(trades)}次交易操作\n")
 
-print("=" * 70)
-print("📊 交易统计报告")
-print("=" * 70)
-print(f"\n总交易数: {total}")
-print(f"盈利交易: {wins} 次")
-print(f"亏损交易: {losses} 次")
-print(f"胜率: {win_rate:.2f}%")
-print(f"\n平均盈利: {avg_win:.2f} USDT")
-print(f"平均亏损: {avg_loss:.2f} USDT")
-print(f"盈亏比: {(abs(avg_win/avg_loss) if avg_loss != 0 else 0):.2f}:1")
-print(f"\n总盈利: {total_win:.2f} USDT")
-print(f"总亏损: {total_loss:.2f} USDT")
-print(f"净盈亏: {(total_win + total_loss):.2f} USDT")
+    # 按类型分组
+    by_action = {}
+    for trade in trades:
+        action = trade['action']
+        if action not in by_action:
+            by_action[action] = []
+        by_action[action].append(trade)
 
-print("\n" + "=" * 70)
-print("📋 最近10笔交易（倒序）")
-print("=" * 70)
-for i, trade in enumerate(reversed(trades[-10:]), 1):
-    status = "✅" if trade['pnl_usdt'] > 0 else "❌"
-    print(f"{i}. {trade['symbol']} {trade['side'].upper()}: "
-          f"{trade['open_price']:.4f} → {trade['close_price']:.4f} = "
-          f"{trade['pnl_pct']:+.2f}% ({trade['pnl_usdt']:+.2f} USDT) {status}")
+    for action, action_trades in sorted(by_action.items()):
+        print(f"\n{action.upper()}: {len(action_trades)}次")
+        print("-" * 80)
 
-# 按币种统计
-symbol_stats = {}
-for trade in trades:
-    sym = trade['symbol']
-    if sym not in symbol_stats:
-        symbol_stats[sym] = {'total': 0, 'wins': 0, 'losses': 0, 'pnl': 0}
-    
-    symbol_stats[sym]['total'] += 1
-    symbol_stats[sym]['pnl'] += trade['pnl_usdt']
-    if trade['pnl_usdt'] > 0:
-        symbol_stats[sym]['wins'] += 1
-    else:
-        symbol_stats[sym]['losses'] += 1
+        for i, trade in enumerate(action_trades[:10], 1):
+            print(f"\n{i}. 时间: {trade['timestamp']}")
+            print(f"   文件: {trade['file']}")
+            print(f"   币种: {trade['symbol']}")
+            print(f"   价格: {trade['price']}")
+            print(f"   数量: {trade['quantity']}")
+            print(f"   推理: {trade['reasoning'][:200]}")
 
-if symbol_stats:
-    print("\n" + "=" * 70)
-    print("📈 各币种表现")
-    print("=" * 70)
-    for symbol, stats in sorted(symbol_stats.items(), key=lambda x: x[1]['pnl'], reverse=True):
-        wr = (stats['wins'] / stats['total'] * 100) if stats['total'] > 0 else 0
-        print(f"{symbol}: {stats['total']}笔 | 胜率{wr:.1f}% | "
-              f"净盈亏{stats['pnl']:+.2f} USDT")
+        if len(action_trades) > 10:
+            print(f"\n... 还有{len(action_trades)-10}条记录")
+
+def main():
+    all_files = sorted(Path(LOG_DIR).glob("decision_202511*.json"))
+
+    before_files = []
+    after_files = []
+
+    for file in all_files:
+        ts = parse_timestamp(file.name)
+
+        if ts.date() == datetime(2025, 11, 10).date():
+            before_files.append(str(file))
+        elif (ts.date() == datetime(2025, 11, 11).date() and ts.hour >= 12) or \
+             (ts.date() == datetime(2025, 11, 12).date() and ts.hour < 12):
+            after_files.append(str(file))
+
+    analyze_trades(before_files, "优化前 (2025-11-10)")
+    analyze_trades(after_files, "优化后 (2025-11-11 12:00 - 2025-11-12 12:00)")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,33 @@
+{
+  "id": "SOLUSDT_1762294838",
+  "timestamp": "2025-11-05T06:20:38.353967+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.85,
+    "expected_move": -4.2,
+    "timeframe": "4h",
+    "confidence": "very_high",
+    "reasoning": "Price is in a strong downtrend with bearish EMA alignment and high RSI despite falling price, indicating weak momentum. Elevated volume on down moves and extreme fear suggest distribution phase continuation. Short-term oversold RSI may prompt minor bounce but structural pressure remains down.",
+    "key_factors": [
+      "EMA20 \u003c EMA50 \u003c EMA200",
+      "RSI divergence",
+      "high volume on downtrend",
+      "extreme market panic",
+      "bearish social sentiment"
+    ],
+    "risk_level": "high",
+    "worst_case": -6.5,
+    "best_case": 1.2
+  },
+  "entry_price": 153.12,
+  "target_time": "2025-11-05T10:20:38.353965+08:00",
+  "evaluated": true,
+  "actual_move": 1.0775862068965554,
+  "actual_high": 155.87,
+  "actual_low": 147.2,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:58:13.052779+08:00"
+}

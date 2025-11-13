@@ -1,0 +1,204 @@
+package agents
+
+// IMPROVED VERSION - 改进后的预测Agent Prompt设计
+
+/*
+改进要点：
+1. ✅ 单一JSON模式定义（system prompt）
+2. ✅ 明确约束条件（预防无效输出）
+3. ✅ 精简冗余注释
+4. ✅ 统一分类体系
+5. ✅ 结构化数据输入
+*/
+
+func (agent *PredictionAgent) buildPredictionPromptImproved(ctx *PredictionContext) (systemPrompt string, userPrompt string) {
+	// ==================== SYSTEM PROMPT ====================
+	systemPrompt = `You are a cryptocurrency price prediction expert.
+
+## Your Role
+Make probabilistic predictions about future price movements based on market data.
+You are NOT rule-following; you are pattern-recognizing and reasoning under uncertainty.
+
+## Output Schema (STRICT)
+Respond with ONLY a valid JSON object (no markdown fences, no trailing commas):
+
+{
+  "symbol": "BTCUSDT",
+  "direction": "up" | "down" | "neutral",
+  "probability": 0.75,          // 0.50-1.00 for directional, 0.50-0.65 for neutral
+  "expected_move": 3.5,         // percentage (±)
+  "timeframe": "1h" | "4h" | "24h",
+  "confidence": "very_high" | "high" | "medium" | "low" | "very_low",
+  "reasoning": "Brief analysis (max 200 chars)",
+  "key_factors": ["factor1", "factor2", "factor3"],
+  "risk_level": "very_high" | "high" | "medium" | "low" | "very_low",
+  "worst_case": -2.0,          // must be ≤ 0 if direction=up, < 0 if direction=down
+  "best_case": 5.0             // must be ≥ 0 if direction=down, > 0 if direction=up
+}
+
+## Constraints
+1. probability ∈ [0.5, 1.0]. If < 0.7, consider direction="neutral"
+2. expected_move must align with direction (+ for up, - for down, near 0 for neutral)
+3. worst_case < best_case always
+4. If direction="up": best_case > 0 AND worst_case ≤ 0
+5. If direction="down": worst_case < 0 AND best_case ≥ 0
+6. Float precision: 2 decimals max
+7. Do NOT copy the example symbol/values; use actual input symbol
+
+## Reasoning Guidelines
+- Indicators are REFERENCE, not rules (you can disagree with RSI/MACD)
+- Neutral is valid when confidence < 70%
+- Consider regime (trending vs ranging) over individual signals
+- Weight recent data more than historical averages
+`
+
+	// ==================== USER PROMPT ====================
+	// 1. 市场阶段（简洁）
+	userPrompt = "# Market Context\n"
+	if ctx.Intelligence != nil {
+		userPrompt += fmt.Sprintf("Phase: %s\n", ctx.Intelligence.MarketPhase)
+		if len(ctx.Intelligence.KeyRisks) > 0 {
+			userPrompt += fmt.Sprintf("Key Risks: %v\n", ctx.Intelligence.KeyRisks)
+		}
+		if len(ctx.Intelligence.KeyOpportunities) > 0 {
+			userPrompt += fmt.Sprintf("Key Opps: %v\n", ctx.Intelligence.KeyOpportunities)
+		}
+		userPrompt += fmt.Sprintf("Summary: %s\n\n", ctx.Intelligence.Summary)
+	}
+
+	// 2. 结构化市场数据（JSON格式，无注释）
+	if ctx.MarketData != nil {
+		md := ctx.MarketData
+		dataJSON := fmt.Sprintf(`# %s Data (Structured)
+{
+  "price": %.2f,
+  "change_1h": %.2f,
+  "change_4h": %.2f,
+  "rsi7": %.2f,
+  "macd": %.4f,
+  "ema20": %.2f,
+  "ema50": %.2f,
+  "ema200": %.2f,
+  "atr_pct": %.2f,
+  "volume_vs_avg": %.2f,
+  "funding_rate": %.4f
+}
+
+`, md.Symbol, md.CurrentPrice, md.PriceChange1h, md.PriceChange4h,
+			md.CurrentRSI7, md.CurrentMACD,
+			md.LongerTermContext.EMA20, md.LongerTermContext.EMA50, md.LongerTermContext.EMA200,
+			(md.LongerTermContext.ATR14/md.CurrentPrice)*100,
+			(md.LongerTermContext.CurrentVolume/md.LongerTermContext.AverageVolume-1)*100,
+			md.FundingRate)
+
+		userPrompt += dataJSON
+	}
+
+	// 3. 扩展数据（保留，但不加注释）
+	if ctx.ExtendedData != nil {
+		extData := market.FormatExtended(ctx.ExtendedData)
+		if extData != "" {
+			userPrompt += "# Extended Data\n" + extData + "\n"
+		}
+	}
+
+	// 4. 历史表现（简化）- 只保留数字
+	if ctx.HistoricalPerf != nil && ctx.HistoricalPerf.TotalPredictions > 5 {
+		perf := ctx.HistoricalPerf
+		userPrompt += fmt.Sprintf("# Your Historical Performance\nWin Rate: %.0f%% | Avg Accuracy: %.0f%%\n\n",
+			perf.OverallWinRate*100, perf.AvgAccuracy*100)
+	}
+
+	// 5. 任务指令（极简）
+	userPrompt += `# Task
+Predict the next move. Output JSON only (no fences). Follow the schema constraints.
+`
+
+	return systemPrompt, userPrompt
+}
+
+// ==================== 改进后的验证 ====================
+func (agent *PredictionAgent) validatePredictionImproved(pred *types.Prediction) error {
+	// 基础验证
+	if pred.Symbol == "" {
+		return fmt.Errorf("symbol required")
+	}
+
+	validDirections := map[string]bool{"up": true, "down": true, "neutral": true}
+	if !validDirections[pred.Direction] {
+		return fmt.Errorf("invalid direction: %s", pred.Direction)
+	}
+
+	if pred.Probability < 0.5 || pred.Probability > 1.0 {
+		return fmt.Errorf("probability must be 0.5-1.0, got %.2f", pred.Probability)
+	}
+
+	validConfidence := map[string]bool{"very_high": true, "high": true, "medium": true, "low": true, "very_low": true}
+	if !validConfidence[pred.Confidence] {
+		return fmt.Errorf("invalid confidence: %s", pred.Confidence)
+	}
+
+	validRiskLevels := map[string]bool{"very_high": true, "high": true, "medium": true, "low": true, "very_low": true}
+	if !validRiskLevels[pred.RiskLevel] {
+		return fmt.Errorf("invalid risk_level: %s", pred.RiskLevel)
+	}
+
+	// ✅ NEW: 完整性验证
+	if pred.BestCase <= pred.WorstCase {
+		return fmt.Errorf("best_case (%.2f) must be > worst_case (%.2f)", pred.BestCase, pred.WorstCase)
+	}
+
+	// ✅ NEW: 方向一致性验证
+	switch pred.Direction {
+	case "up":
+		if pred.BestCase <= 0 {
+			return fmt.Errorf("direction=up but best_case=%.2f ≤ 0", pred.BestCase)
+		}
+		if pred.WorstCase > 0 {
+			return fmt.Errorf("direction=up but worst_case=%.2f > 0", pred.WorstCase)
+		}
+		if pred.ExpectedMove <= 0 {
+			return fmt.Errorf("direction=up but expected_move=%.2f ≤ 0", pred.ExpectedMove)
+		}
+
+	case "down":
+		if pred.WorstCase >= 0 {
+			return fmt.Errorf("direction=down but worst_case=%.2f ≥ 0", pred.WorstCase)
+		}
+		if pred.BestCase < 0 {
+			return fmt.Errorf("direction=down but best_case=%.2f < 0", pred.BestCase)
+		}
+		if pred.ExpectedMove >= 0 {
+			return fmt.Errorf("direction=down but expected_move=%.2f ≥ 0", pred.ExpectedMove)
+		}
+
+	case "neutral":
+		if pred.Probability > 0.65 {
+			return fmt.Errorf("direction=neutral but probability=%.2f > 0.65", pred.Probability)
+		}
+	}
+
+	// ✅ NEW: 概率-置信度一致性
+	if pred.Probability >= 0.85 && pred.Confidence != "very_high" && pred.Confidence != "high" {
+		return fmt.Errorf("probability %.2f but confidence=%s (should be high/very_high)", pred.Probability, pred.Confidence)
+	}
+
+	return nil
+}
+
+/*
+性能对比估算：
+
+指标                 | 旧版     | 新版     | 改进
+--------------------|---------|---------|--------
+Prompt Tokens       | ~2000   | ~1000   | -50%
+Response Tokens     | ~300    | ~200    | -33%
+Invalid JSON Rate   | ~15%    | ~5%     | -67%
+Retry Cost          | High    | Low     | -70%
+Semantic Errors     | Medium  | Low     | -50%
+
+ROI:
+- 每次调用节省 ~$0.002 (at $0.002/1K tokens)
+- 每天1000次预测 → 节省 $2/day = $60/month
+- 减少重试延迟 → 更快响应
+*/

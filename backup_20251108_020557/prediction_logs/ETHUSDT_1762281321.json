@@ -1,0 +1,31 @@
+{
+  "id": "ETHUSDT_1762281321",
+  "timestamp": "2025-11-05T02:35:21.120875+08:00",
+  "symbol": "ETHUSDT",
+  "prediction": {
+    "symbol": "ETHUSDT",
+    "direction": "up",
+    "probability": 0.72,
+    "expected_move": 2.8,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "尽管市场处于空头主导状态，价格远低于关键均线，但RSI进入极端超卖区域（5.52），结合极度恐慌情绪和放量下跌，短期空头动能接近衰竭。历史数据显示此类情境常触发技术性反弹或空头回补，尤其在远离EMA200的情况下，均值回归可能性上升。",
+    "key_factors": [
+      "extreme_RSI",
+      "high_volume_on_downside",
+      "mean_reversion_potential"
+    ],
+    "risk_level": "high",
+    "worst_case": -2,
+    "best_case": 5
+  },
+  "entry_price": 3273.02,
+  "target_time": "2025-11-05T06:35:21.120874+08:00",
+  "evaluated": true,
+  "actual_move": 0.14329273881614088,
+  "actual_high": 3315.5,
+  "actual_low": 3055,
+  "is_correct": true,
+  "accuracy": 0.05117597814862174,
+  "evaluated_time": "2025-11-06T01:57:58.092822+08:00"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762468150",
+  "timestamp": "2025-11-07T06:29:10.120226+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.76,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于超卖区域，RSI7为27.22，暗示潜在反弹。MACD出现金叉，提供短期看涨信号。尽管整体趋势仍为下行，但动量指标出现背离。账户夏普比率为负，需谨慎对待信号强度，因此概率适度下调。历史准确率偏低（13.4%），但当前信号组合优于平均水平，故维持偏高置信。",
+    "key_factors": [
+      "超卖反弹信号",
+      "MACD金叉",
+      "夏普比率拖累"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.2,
+    "best_case": 4.5
+  },
+  "entry_price": 155.22,
+  "target_time": "2025-11-07T10:29:10.120225+08:00",
+  "evaluated": true,
+  "actual_move": 0.5798221878623926,
+  "actual_high": 157.57,
+  "actual_low": 153.34,
+  "is_correct": true,
+  "accuracy": 0.31341739884453657,
+  "evaluated_time": "2025-11-07T23:23:13.44642+08:00"
+}

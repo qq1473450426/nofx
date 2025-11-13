@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762496156",
+  "timestamp": "2025-11-07T14:15:56.796406+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "up",
+    "probability": 0.7795988888626638,
+    "expected_move": 1.25,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "技术面显示价格处于超卖区域，MACD出现金叉且仍处多头区间，短期动能有企稳迹象。尽管整体趋势为下行，但成交量萎缩和价格震荡暗示抛压减弱。账户风险可控，保证金使用率低，且系统虽Sharpe比率为负，但当前信号强度支持适度看涨。历史准确率偏低但近期波动率下降有助于提高预测稳定性。",
+    "key_factors": [
+      "超卖反弹潜力",
+      "MACD金叉持续",
+      "量能萎缩变盘"
+    ],
+    "risk_level": "medium",
+    "worst_case": -0.8,
+    "best_case": 3.5
+  },
+  "entry_price": 102288.8,
+  "target_time": "2025-11-07T18:15:56.796406+08:00",
+  "evaluated": true,
+  "actual_move": -1.4552912928883766,
+  "actual_high": 102433.9,
+  "actual_low": 100700.8,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:51.223062+08:00"
+}

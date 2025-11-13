@@ -1,0 +1,32 @@
+{
+  "id": "SOLUSDT_1762979300",
+  "timestamp": "2025-11-13T04:28:20.966627+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "down",
+    "probability": 0.72,
+    "expected_move": -3.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "MACD负值扩大，价格低于EMA20和EMA50，市场情绪悲观。",
+    "key_factors": [
+      "m\u003cms",
+      "price\u003ce20",
+      "price\u003ce50",
+      "fgi\u003c25"
+    ],
+    "risk_level": "medium",
+    "worst_case": 1.3050938020856815,
+    "best_case": -5
+  },
+  "entry_price": 153.93,
+  "target_time": "2025-11-14T04:28:20.966626+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

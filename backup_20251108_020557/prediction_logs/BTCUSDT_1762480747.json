@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762480747",
+  "timestamp": "2025-11-07T09:59:07.535274+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "down",
+    "probability": 0.74,
+    "expected_move": -589.23,
+    "timeframe": "4h",
+    "confidence": "medium",
+    "reasoning": "技术面显示价格处于强烈下行趋势，均线下方空头排列，MACD死叉且交易量萎缩，短期反弹动能有限。尽管RSI未超买，但市场情绪偏恐惧，叠加系统夏普比率为负，预测准确性受限。综合判断下行动能仍占主导，但幅度受限于低波动率与缩量环境。",
+    "key_factors": [
+      "强烈下行趋势",
+      "交易量显著萎缩",
+      "MACD死叉"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1178.46,
+    "best_case": 196.54
+  },
+  "entry_price": 101414.1,
+  "target_time": "2025-11-07T13:59:07.535273+08:00",
+  "evaluated": true,
+  "actual_move": 0.9721527874329055,
+  "actual_high": 102480.4,
+  "actual_low": 101200,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-07T23:22:46.028621+08:00"
+}

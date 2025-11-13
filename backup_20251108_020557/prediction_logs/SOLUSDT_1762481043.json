@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1762481043",
+  "timestamp": "2025-11-07T10:04:03.342073+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.74,
+    "expected_move": 1.85,
+    "timeframe": "4h",
+    "confidence": "medium",
+    "reasoning": "市场技术面显示价格虽处于下行趋势下方，但短期RSI接近中性且MACD维持金叉，1小时和4小时涨幅一致表明动能正在转强。账户风险方面，系统夏普比率为负，需适度降低信心，但当前波动率适中且存在交易机会。历史胜率偏低但近期价格反应积极，结合量能企稳，判断向上概率略高。",
+    "key_factors": [
+      "RSI反弹动能",
+      "MACD金叉持续",
+      "短期多周期上涨共振"
+    ],
+    "risk_level": "medium",
+    "worst_case": -2.1,
+    "best_case": 4.3
+  },
+  "entry_price": 156.82,
+  "target_time": "2025-11-07T14:04:03.342073+08:00",
+  "evaluated": true,
+  "actual_move": 0.5802831271521468,
+  "actual_high": 158.52,
+  "actual_low": 155.18,
+  "is_correct": true,
+  "accuracy": 0.31366655521737663,
+  "evaluated_time": "2025-11-07T23:23:19.097342+08:00"
+}

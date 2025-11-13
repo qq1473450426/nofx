@@ -1,0 +1,31 @@
+{
+  "id": "SOLUSDT_1763005722",
+  "timestamp": "2025-11-13T11:48:42.437144+08:00",
+  "symbol": "SOLUSDT",
+  "prediction": {
+    "symbol": "SOLUSDT",
+    "direction": "up",
+    "probability": 0.65,
+    "expected_move": 2.5,
+    "timeframe": "24h",
+    "confidence": "medium",
+    "reasoning": "价格稳定在EMA20上方，RSI处于中性区域，MACD接近零线但仍在上升。未平仓合约小幅增加，表明市场有一定动能。虽然市场情绪偏悲观且成交量较低，但技术指标显示短期有支撑。",
+    "key_factors": [
+      "价格\u003eEMA20",
+      "RSI中性",
+      "MACD接近零线但上升"
+    ],
+    "risk_level": "medium",
+    "worst_case": -1.5,
+    "best_case": 3.5
+  },
+  "entry_price": 154.83,
+  "target_time": "2025-11-14T11:48:42.437143+08:00",
+  "evaluated": false,
+  "actual_move": 0,
+  "actual_high": 0,
+  "actual_low": 0,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "0001-01-01T00:00:00Z"
+}

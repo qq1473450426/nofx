@@ -1,0 +1,32 @@
+{
+  "id": "DOGEUSDT_1762323085",
+  "timestamp": "2025-11-05T14:11:25.890073+08:00",
+  "symbol": "DOGEUSDT",
+  "prediction": {
+    "symbol": "DOGEUSDT",
+    "direction": "down",
+    "probability": 0.72,
+    "expected_move": -2.8,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price remains below all key EMAs with strong bearish momentum. Low volume suggests weak buying interest, though extreme fear and near-oversold RSI may limit downside. MACD near zero but still negative, indicating no reversal yet.",
+    "key_factors": [
+      "price_below_all_EMAs",
+      "low_volume",
+      "RSI_near_oversold",
+      "bearish_market_sentiment"
+    ],
+    "risk_level": "high",
+    "worst_case": -4.5,
+    "best_case": 1.2
+  },
+  "entry_price": 0.1645,
+  "target_time": "2025-11-05T18:11:25.890072+08:00",
+  "evaluated": true,
+  "actual_move": -1.0699088145896727,
+  "actual_high": 0.16541,
+  "actual_low": 0.16181,
+  "is_correct": true,
+  "accuracy": 0.38211029092488313,
+  "evaluated_time": "2025-11-06T01:57:55.897065+08:00"
+}

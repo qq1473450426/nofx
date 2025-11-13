@@ -1,0 +1,31 @@
+{
+  "id": "BTCUSDT_1762310502",
+  "timestamp": "2025-11-05T10:41:42.792961+08:00",
+  "symbol": "BTCUSDT",
+  "prediction": {
+    "symbol": "BTCUSDT",
+    "direction": "down",
+    "probability": 0.78,
+    "expected_move": -2.1,
+    "timeframe": "4h",
+    "confidence": "high",
+    "reasoning": "Price is in a strong downtrend with bearish EMA alignment and RSI showing overbought conditions despite weak price action. The rally lacks conviction as it fails to break key resistance levels, occurring during a distribution phase where weak hands are trapped. High volume supports participation but not necessarily bullish control.",
+    "key_factors": [
+      "bearish_ema_alignment",
+      "rsi_overbought_without_breakout",
+      "distribution_phase"
+    ],
+    "risk_level": "high",
+    "worst_case": -3.5,
+    "best_case": 0.8
+  },
+  "entry_price": 101563.4,
+  "target_time": "2025-11-05T14:41:42.792961+08:00",
+  "evaluated": true,
+  "actual_move": 0.16895850276773505,
+  "actual_high": 102326.4,
+  "actual_low": 101216.8,
+  "is_correct": false,
+  "accuracy": 0,
+  "evaluated_time": "2025-11-06T01:57:55.35639+08:00"
+}
