@@ -469,7 +469,7 @@ func (s *Server) handleLogs(c *gin.Context) {
 	}
 
 	// 读取日志文件
-	logFile := "nofx.log"
+	logFile := "logs/nofx.log"
 	content, err := readLastLines(logFile, lines, filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -500,7 +500,7 @@ func (s *Server) handleErrorLogs(c *gin.Context) {
 	}
 
 	// 读取日志并过滤错误信息
-	logFile := "nofx.log"
+	logFile := "logs/nofx.log"
 	// 匹配错误关键词
 	errorKeywords := "❌|⚠️|ERROR|失败|错误|code=-|panic|fatal"
 	content, err := readLastLines(logFile, lines*5, errorKeywords) // 读取更多行再过滤
