@@ -14,8 +14,16 @@ func (m *Manager) UpdateLearningSummary() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// 至少需要10笔交易才能开始学习
-	if len(m.memory.RecentTrades) < 10 {
+	// 🔧 修正：只统计已完成的交易（有result的）
+	completedTrades := 0
+	for _, trade := range m.memory.RecentTrades {
+		if trade.Result != "" {
+			completedTrades++
+		}
+	}
+
+	// 至少需要10笔已完成的交易才能开始学习
+	if completedTrades < 10 {
 		return nil
 	}
 
