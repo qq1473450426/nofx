@@ -1,0 +1,17 @@
+================================================================================
+🔬 关键问题诊断：只平亏损不平盈利？追涨杀跌？
+================================================================================
+
+✅ 加载 1360 条记录
+
+================================================================================
+🔍 平仓行为深度分析：盈利 vs 亏损
+================================================================================
+Traceback (most recent call last):
+  File "/Users/sunjiaqiang/nofx/analyze_close_behavior.py", line 366, in <module>
+    main()
+  File "/Users/sunjiaqiang/nofx/analyze_close_behavior.py", line 350, in main
+    close_events = analyze_close_behavior(logs)
+  File "/Users/sunjiaqiang/nofx/analyze_close_behavior.py", line 59, in analyze_close_behavior
+    is_manual_close = 'close' in str([d.get('action') for d in log.get('decisions', []) if d.get('symbol') == symbol])
+TypeError: 'NoneType' object is not iterable

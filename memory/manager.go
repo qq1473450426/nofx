@@ -127,6 +127,14 @@ func (m *Manager) AddTrade(entry TradeEntry) error {
 		fmt.Printf("🎓 学习阶段完成！总共%d笔交易，进入成熟阶段\n", m.memory.TotalTrades)
 	}
 
+	// 🧠 自动更新学习总结（至少10笔交易后开始学习）
+	if m.memory.TotalTrades >= 10 {
+		if err := m.UpdateLearningSummary(); err != nil {
+			fmt.Printf("⚠️  更新学习总结失败: %v\n", err)
+			// 不影响主流程，继续执行
+		}
+	}
+
 	// 🔧 修复死锁：在调用Save之前释放锁，因为Save内部也需要获取锁
 	m.mu.Unlock()
 
@@ -187,6 +195,12 @@ func (m *Manager) GetContextPrompt() string {
 	// 添加硬约束
 	prompt += "## 🛡️ 基础风控要求（必须遵守）\n\n"
 	prompt += formatHardConstraints(m.memory.HardConstraints)
+
+	// 🧠 添加学习总结（如果有的话）
+	if m.memory.LearningSummary != nil && m.memory.TotalTrades >= 10 {
+		prompt += "\n## 🧠 你的学习总结（基于历史表现自动生成）\n\n"
+		prompt += formatLearningSummary(m.memory.LearningSummary)
+	}
 
 	return prompt
 }
@@ -275,3 +289,65 @@ func formatHardConstraints(constraints []string) string {
 	}
 	return result
 }
+
+// formatLearningSummary 格式化学习总结
+func formatLearningSummary(summary *LearningSummary) string {
+	var result string
+
+	// 1️⃣ 失败模式（优先显示）
+	if len(summary.FailurePatterns) > 0 {
+		result += "### ⚠️  识别到的失败模式\n\n"
+		for _, pattern := range summary.FailurePatterns {
+			result += fmt.Sprintf("- %s\n", pattern)
+		}
+		result += "\n"
+	}
+
+	// 2️⃣ 成功经验
+	if len(summary.SuccessPatterns) > 0 {
+		result += "### ✅ 总结的成功经验\n\n"
+		for _, pattern := range summary.SuccessPatterns {
+			result += fmt.Sprintf("- %s\n", pattern)
+		}
+		result += "\n"
+	}
+
+	// 3️⃣ 市场环境偏好
+	if len(summary.MarketPreferences) > 0 {
+		result += "### 📊 市场环境适应性\n\n"
+		for regime, winRate := range summary.MarketPreferences {
+			emoji := "✅"
+			if winRate < 0.4 {
+				emoji = "❌"
+			} else if winRate < 0.5 {
+				emoji = "⚠️"
+			}
+			result += fmt.Sprintf("- %s %s: 胜率 %.0f%%\n", emoji, regime, winRate*100)
+		}
+		result += "\n"
+	}
+
+	// 4️⃣ 信号统计（只显示样本量足够的，≥5次）
+	if len(summary.SignalStats) > 0 {
+		result += "### 🎯 关键信号成功率（样本≥5）\n\n"
+		for _, stat := range summary.SignalStats {
+			if stat.TotalCount >= 5 {
+				emoji := "✅"
+				if stat.WinRate < 0.4 {
+					emoji = "❌"
+				} else if stat.WinRate < 0.5 {
+					emoji = "⚠️"
+				}
+				result += fmt.Sprintf("- %s \"%s\": %.0f%% (%d胜/%d负)\n",
+					emoji, stat.SignalName, stat.WinRate*100, stat.WinCount, stat.LossCount)
+			}
+		}
+		result += "\n"
+	}
+
+	updateTime := time.Since(summary.UpdatedAt)
+	result += fmt.Sprintf("*最后更新: %s前*\n", formatDuration(updateTime))
+
+	return result
+}
+

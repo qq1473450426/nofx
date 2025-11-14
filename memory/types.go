@@ -16,6 +16,37 @@ type SimpleMemory struct {
 
 	// Seed Knowledge: 只保留硬约束（基础风控）
 	HardConstraints []string `json:"hard_constraints"`
+
+	// 🆕 自适应学习模块
+	LearningSummary *LearningSummary `json:"learning_summary,omitempty"`
+}
+
+// 🆕 LearningSummary 学习总结（自动生成）
+type LearningSummary struct {
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// 信号成功率统计
+	SignalStats map[string]*SignalStat `json:"signal_stats"`
+
+	// 失败模式识别
+	FailurePatterns []string `json:"failure_patterns"`
+
+	// 成功经验总结
+	SuccessPatterns []string `json:"success_patterns"`
+
+	// 市场环境偏好
+	MarketPreferences map[string]float64 `json:"market_preferences"` // regime -> win_rate
+}
+
+// 🆕 SignalStat 信号统计
+type SignalStat struct {
+	SignalName  string  `json:"signal_name"`
+	TotalCount  int     `json:"total_count"`
+	WinCount    int     `json:"win_count"`
+	LossCount   int     `json:"loss_count"`
+	WinRate     float64 `json:"win_rate"`
+	AvgReturn   float64 `json:"avg_return"`
+	LastUsed    time.Time `json:"last_used"`
 }
 
 // TradeEntry 单笔交易记录
@@ -54,12 +85,12 @@ type TradeEntry struct {
 
 // OverallStats 整体统计（用于可视化）
 type OverallStats struct {
-	TotalTrades  int     `json:"total_trades"`
-	WinCount     int     `json:"win_count"`
-	LossCount    int     `json:"loss_count"`
-	WinRate      float64 `json:"win_rate"`
-	AvgReturn    float64 `json:"avg_return"`
-	TotalReturn  float64 `json:"total_return"`
-	MaxDrawdown  float64 `json:"max_drawdown"`
+	TotalTrades   int     `json:"total_trades"`
+	WinCount      int     `json:"win_count"`
+	LossCount     int     `json:"loss_count"`
+	WinRate       float64 `json:"win_rate"`
+	AvgReturn     float64 `json:"avg_return"`
+	TotalReturn   float64 `json:"total_return"`
+	MaxDrawdown   float64 `json:"max_drawdown"`
 	RecentWinRate float64 `json:"recent_win_rate"` // 最近10笔
 }
