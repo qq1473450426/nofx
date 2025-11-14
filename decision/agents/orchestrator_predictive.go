@@ -859,7 +859,6 @@ func validateEntryTiming(direction string, md *market.Data) error {
 	change4h := md.PriceChange4h
 	ema20 := md.CurrentEMA20
 	macd := md.CurrentMACD
-	macdSignal := md.MACDSignal
 
 	// 判断币种类型（主流 vs 山寨）
 	// 主流币：BTC, ETH
@@ -917,22 +916,19 @@ func validateEntryTiming(direction string, md *market.Data) error {
 				symbol, rsi14, rsi14Threshold)
 		}
 
-		// 【3】趋势反向（做多时下跌趋势）
-		if ema50 > 0 && ema20 < ema50 {
-			return fmt.Errorf("[%s] 🚫 禁止逆势：EMA20(%.2f) < EMA50(%.2f)（下跌趋势）",
-				symbol, ema20, ema50)
-		}
-		if macd < 0 {
-			return fmt.Errorf("[%s] 🚫 禁止逆势：MACD=%.4f < 0（空头动能）",
-				symbol, macd)
-		}
-		if macdSignal != 0 && macd < macdSignal {
-			return fmt.Errorf("[%s] 🚫 禁止逆势：MACD(%.4f) < Signal(%.4f)（死叉）",
-				symbol, macd, macdSignal)
-		}
-		if change4h < -2.0 {
-			return fmt.Errorf("[%s] 🚫 禁止逆势：4h跌幅%.2f%% < -2%%（短期下跌）",
-				symbol, change4h)
+		// 【3】趋势反向（做多时遇到明显下跌趋势）
+		// 使用多指标共振判断"真·下跌趋势"
+		if ema50 > 0 && ema20 > 0 {
+			emaGapPct := (ema20 - ema50) / ema50 * 100
+
+			// 只有在"明显下跌趋势"时才禁止做多
+			// 条件：EMA20<EMA50 且 gap>0.3% 且 4h跌>2% 且 MACD<0
+			isDowntrend := emaGapPct < -0.3 && change4h < -2.0 && macd < 0
+
+			if isDowntrend {
+				return fmt.Errorf("[%s] 🚫 禁止逆势做多：EMA20(%.2f)<EMA50(%.2f), gap=%.2f%%, 4h跌%.2f%%, MACD<0（明显下跌趋势）",
+					symbol, ema20, ema50, emaGapPct, change4h)
+			}
 		}
 
 		// 【4】ATR异常波动（涨幅超过ATR的倍数）
@@ -1017,22 +1013,19 @@ func validateEntryTiming(direction string, md *market.Data) error {
 				symbol, rsi14, rsi14Threshold)
 		}
 
-		// 【3】趋势反向（做空时上涨趋势）
-		if ema50 > 0 && ema20 > ema50 {
-			return fmt.Errorf("[%s] 🚫 禁止逆势：EMA20(%.2f) > EMA50(%.2f)（上涨趋势）",
-				symbol, ema20, ema50)
-		}
-		if macd > 0 {
-			return fmt.Errorf("[%s] 🚫 禁止逆势：MACD=%.4f > 0（多头动能）",
-				symbol, macd)
-		}
-		if macdSignal != 0 && macd > macdSignal {
-			return fmt.Errorf("[%s] 🚫 禁止逆势：MACD(%.4f) > Signal(%.4f)（金叉）",
-				symbol, macd, macdSignal)
-		}
-		if change4h > 2.0 {
-			return fmt.Errorf("[%s] 🚫 禁止逆势：4h涨幅%.2f%% > +2%%（短期上涨）",
-				symbol, change4h)
+		// 【3】趋势反向（做空时遇到明显上涨趋势）
+		// 使用多指标共振判断"真·上涨趋势"
+		if ema50 > 0 && ema20 > 0 {
+			emaGapPct := (ema20 - ema50) / ema50 * 100
+
+			// 只有在"明显上涨趋势"时才禁止做空
+			// 条件：EMA20>EMA50 且 gap>0.3% 且 4h涨>2% 且 MACD>0
+			isUptrend := emaGapPct > 0.3 && change4h > 2.0 && macd > 0
+
+			if isUptrend {
+				return fmt.Errorf("[%s] 🚫 禁止逆势做空：EMA20(%.2f)>EMA50(%.2f), gap=%.2f%%, 4h涨%.2f%%, MACD>0（明显上涨趋势）",
+					symbol, ema20, ema50, emaGapPct, change4h)
+			}
 		}
 
 		// 【4】ATR异常波动（跌幅超过ATR的倍数）
