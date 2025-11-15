@@ -420,33 +420,44 @@ func (o *DecisionOrchestrator) shouldClosePosition(pos PositionInfoInput, predic
 func (o *DecisionOrchestrator) shouldClosePositionWithReason(pos PositionInfoInput, prediction *types.Prediction) (bool, string) {
 	holdDuration := time.Since(pos.OpenTime)
 
+	// 🐛 DEBUG: 记录所有条件检查结果
+	log.Printf("🔍 [%s %s] 平仓条件检查: 盈亏=%.2f%%, 持仓时长=%.1f分钟, 预测=%s(%.0f%%)",
+		pos.Symbol, pos.Side, pos.UnrealizedPnLPct, holdDuration.Minutes(),
+		prediction.Direction, prediction.Probability*100)
+
 	// 1. 如果预测方向与持仓方向完全相反，且概率>65% 且 持仓>30分钟 → 平仓
 	if pos.Side == "long" && prediction.Direction == "down" && prediction.Probability > 0.65 {
 		if holdDuration > 30*time.Minute {
+			log.Printf("  → 触发条件1: 方向相反(LONG+DOWN)")
 			return true, fmt.Sprintf("预测方向相反: 持仓LONG但预测DOWN %.0f%%", prediction.Probability*100)
 		}
 	}
 	if pos.Side == "short" && prediction.Direction == "up" && prediction.Probability > 0.65 {
 		if holdDuration > 30*time.Minute {
+			log.Printf("  → 触发条件1: 方向相反(SHORT+UP)")
 			return true, fmt.Sprintf("预测方向相反: 持仓SHORT但预测UP %.0f%%", prediction.Probability*100)
 		}
 	}
 
 	// 2. 如果已经亏损>10% → 止损
 	if pos.UnrealizedPnLPct < -10.0 {
+		log.Printf("  → 触发条件2: 止损(亏损%.2f%%)", pos.UnrealizedPnLPct)
 		return true, fmt.Sprintf("止损: 亏损%.2f%% > 10%%", pos.UnrealizedPnLPct)
 	}
 
 	// 3. 如果已经盈利>20% 且预测变为中性 → 获利了结
 	if pos.UnrealizedPnLPct > 20.0 && prediction.Direction == "neutral" {
+		log.Printf("  → 触发条件3: 获利了结(盈利%.2f%%)", pos.UnrealizedPnLPct)
 		return true, fmt.Sprintf("获利了结: 盈利%.2f%% > 20%% 且预测中性", pos.UnrealizedPnLPct)
 	}
 
 	// 4. 如果持仓时间过长（超过24小时）且未盈利 → 平仓
 	if holdDuration > 24*time.Hour && pos.UnrealizedPnLPct < 5.0 {
+		log.Printf("  → 触发条件4: 持仓过久(%.1f小时, 盈利%.2f%%)", holdDuration.Hours(), pos.UnrealizedPnLPct)
 		return true, fmt.Sprintf("持仓过久: %.0f小时 > 24小时且盈利%.2f%% < 5%%", holdDuration.Hours(), pos.UnrealizedPnLPct)
 	}
 
+	log.Printf("  → 不平仓")
 	return false, ""
 }
 
