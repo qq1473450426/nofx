@@ -321,7 +321,7 @@ func (t *MockTrader) OpenPosition(symbol, side string, quantity float64, leverag
 		symbol, side, quantity, entryPrice, leverage, marginUsed)
 
 	return map[string]interface{}{
-		"order_id": t.orderIDCounter,
+		"orderId":  t.orderIDCounter, // 修复: 与binance_futures.go保持一致，使用驼峰式
 		"symbol":   symbol,
 		"side":     side,
 		"quantity": quantity,
