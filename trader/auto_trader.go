@@ -1691,14 +1691,29 @@ func (at *AutoTrader) buildTradeEntry(
 func extractSignalsFromReasoning(reasoning string) []string {
 	signals := []string{}
 
-	// 常见信号关键词
+	// 🚨 黑名单：这些是结果，不是信号（不应该统计）
+	blacklist := []string{
+		"止盈", "止损", "自动触发", "触发", "强平", "爆仓",
+		"平仓", "获利", "亏损", "盈利", "收益",
+	}
+
+	reasoningLower := strings.ToLower(reasoning)
+
+	// 先检查是否包含黑名单词汇（如果是自动止盈止损的记录，不提取信号）
+	for _, blocked := range blacklist {
+		if strings.Contains(reasoningLower, blocked) {
+			// 这是结果类记录，返回空信号列表
+			return []string{}
+		}
+	}
+
+	// 常见信号关键词（真正的市场信号）
 	keywords := []string{
 		"MACD", "RSI", "EMA", "均线", "突破", "跌破",
 		"金叉", "死叉", "超买", "超卖", "背离",
 		"趋势", "震荡", "支撑", "阻力", "放量",
 	}
 
-	reasoningLower := strings.ToLower(reasoning)
 	for _, keyword := range keywords {
 		if strings.Contains(reasoningLower, strings.ToLower(keyword)) {
 			signals = append(signals, keyword)

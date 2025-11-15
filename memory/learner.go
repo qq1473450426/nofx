@@ -97,16 +97,16 @@ func (m *Manager) analyzeSignals(summary *LearningSummary) {
 func (m *Manager) identifyFailurePatterns(summary *LearningSummary) {
 	summary.FailurePatterns = make([]string, 0)
 
-	// 模式1：特定信号成功率低
+	// 模式1：特定信号成功率低（样本量要求提高到10）
 	for _, stat := range summary.SignalStats {
-		if stat.TotalCount >= 3 && stat.WinRate < 0.35 {
-			pattern := fmt.Sprintf("⚠️ 信号\"%s\"成功率仅%.0f%%（%d胜%d负），建议降低权重",
-				stat.SignalName, stat.WinRate*100, stat.WinCount, stat.LossCount)
+		if stat.TotalCount >= 10 && stat.WinRate < 0.35 {
+			pattern := fmt.Sprintf("⚠️ 信号\"%s\"成功率仅%.0f%%（%d胜%d负，样本:%d），建议降低权重",
+				stat.SignalName, stat.WinRate*100, stat.WinCount, stat.LossCount, stat.TotalCount)
 			summary.FailurePatterns = append(summary.FailurePatterns, pattern)
 		}
 	}
 
-	// 模式2：高置信度预测反而失败
+	// 模式2：高置信度预测反而失败（样本量要求提高到15）
 	highConfFails := 0
 	highConfTotal := 0
 	for _, trade := range m.memory.RecentTrades {
@@ -117,13 +117,13 @@ func (m *Manager) identifyFailurePatterns(summary *LearningSummary) {
 			}
 		}
 	}
-	if highConfTotal >= 5 && float64(highConfFails)/float64(highConfTotal) > 0.5 {
-		pattern := fmt.Sprintf("⚠️ 高置信度预测（>70%%）失败率%.0f%%，可能过度自信",
-			float64(highConfFails)/float64(highConfTotal)*100)
+	if highConfTotal >= 15 && float64(highConfFails)/float64(highConfTotal) > 0.5 {
+		pattern := fmt.Sprintf("⚠️ 高置信度预测（>70%%）失败率%.0f%%（样本:%d），可能过度自信",
+			float64(highConfFails)/float64(highConfTotal)*100, highConfTotal)
 		summary.FailurePatterns = append(summary.FailurePatterns, pattern)
 	}
 
-	// 模式3：特定方向失败率高
+	// 模式3：特定方向失败率高（样本量要求提高到15）
 	longWins, longTotal := 0, 0
 	shortWins, shortTotal := 0, 0
 	for _, trade := range m.memory.RecentTrades {
@@ -143,12 +143,12 @@ func (m *Manager) identifyFailurePatterns(summary *LearningSummary) {
 		}
 	}
 
-	if longTotal >= 5 && float64(longWins)/float64(longTotal) < 0.3 {
+	if longTotal >= 15 && float64(longWins)/float64(longTotal) < 0.3 {
 		pattern := fmt.Sprintf("⚠️ 做多成功率仅%.0f%%（%d/%d），当前市场可能不适合做多",
 			float64(longWins)/float64(longTotal)*100, longWins, longTotal)
 		summary.FailurePatterns = append(summary.FailurePatterns, pattern)
 	}
-	if shortTotal >= 5 && float64(shortWins)/float64(shortTotal) < 0.3 {
+	if shortTotal >= 15 && float64(shortWins)/float64(shortTotal) < 0.3 {
 		pattern := fmt.Sprintf("⚠️ 做空成功率仅%.0f%%（%d/%d），当前市场可能不适合做空",
 			float64(shortWins)/float64(shortTotal)*100, shortWins, shortTotal)
 		summary.FailurePatterns = append(summary.FailurePatterns, pattern)
@@ -159,16 +159,30 @@ func (m *Manager) identifyFailurePatterns(summary *LearningSummary) {
 func (m *Manager) identifySuccessPatterns(summary *LearningSummary) {
 	summary.SuccessPatterns = make([]string, 0)
 
-	// 模式1：高成功率信号
+	// 模式1：高成功率信号（样本量要求：至少20个，100%需要30个）
 	for _, stat := range summary.SignalStats {
-		if stat.TotalCount >= 3 && stat.WinRate > 0.65 {
-			pattern := fmt.Sprintf("✅ 信号\"%s\"成功率%.0f%%（%d胜%d负），建议提高权重",
-				stat.SignalName, stat.WinRate*100, stat.WinCount, stat.LossCount)
+		// 根据成功率要求不同的样本量
+		minSamples := 20
+		if stat.WinRate > 0.95 {
+			minSamples = 30 // 100%成功率需要更多样本才可信
+		}
+
+		if stat.TotalCount >= minSamples && stat.WinRate > 0.65 {
+			// 添加置信度标签
+			confidence := "中等"
+			if stat.TotalCount >= 50 {
+				confidence = "高"
+			} else if stat.TotalCount < 30 {
+				confidence = "低"
+			}
+
+			pattern := fmt.Sprintf("✅ 信号\"%s\"成功率%.0f%%（%d胜%d负，样本:%d，置信度:%s）",
+				stat.SignalName, stat.WinRate*100, stat.WinCount, stat.LossCount, stat.TotalCount, confidence)
 			summary.SuccessPatterns = append(summary.SuccessPatterns, pattern)
 		}
 	}
 
-	// 模式2：特定方向成功率高
+	// 模式2：特定方向成功率高（样本量要求：至少20个）
 	longWins, longTotal := 0, 0
 	shortWins, shortTotal := 0, 0
 	for _, trade := range m.memory.RecentTrades {
@@ -188,18 +202,26 @@ func (m *Manager) identifySuccessPatterns(summary *LearningSummary) {
 		}
 	}
 
-	if longTotal >= 5 && float64(longWins)/float64(longTotal) > 0.65 {
-		pattern := fmt.Sprintf("✅ 做多成功率%.0f%%（%d/%d），当前市场适合做多",
-			float64(longWins)/float64(longTotal)*100, longWins, longTotal)
+	if longTotal >= 20 && float64(longWins)/float64(longTotal) > 0.65 {
+		confidence := "中等"
+		if longTotal >= 50 {
+			confidence = "高"
+		}
+		pattern := fmt.Sprintf("✅ 做多成功率%.0f%%（%d/%d，置信度:%s），当前市场适合做多",
+			float64(longWins)/float64(longTotal)*100, longWins, longTotal, confidence)
 		summary.SuccessPatterns = append(summary.SuccessPatterns, pattern)
 	}
-	if shortTotal >= 5 && float64(shortWins)/float64(shortTotal) > 0.65 {
-		pattern := fmt.Sprintf("✅ 做空成功率%.0f%%（%d/%d），当前市场适合做空",
-			float64(shortWins)/float64(shortTotal)*100, shortWins, shortTotal)
+	if shortTotal >= 20 && float64(shortWins)/float64(shortTotal) > 0.65 {
+		confidence := "中等"
+		if shortTotal >= 50 {
+			confidence = "高"
+		}
+		pattern := fmt.Sprintf("✅ 做空成功率%.0f%%（%d/%d，置信度:%s），当前市场适合做空",
+			float64(shortWins)/float64(shortTotal)*100, shortWins, shortTotal, confidence)
 		summary.SuccessPatterns = append(summary.SuccessPatterns, pattern)
 	}
 
-	// 模式3：推理关键词分析
+	// 模式3：推理关键词分析（样本量要求提高到15，100%需要25）
 	successReasons := make(map[string]int)
 	failReasons := make(map[string]int)
 
@@ -224,9 +246,24 @@ func (m *Manager) identifySuccessPatterns(summary *LearningSummary) {
 	for kw, successCount := range successReasons {
 		failCount := failReasons[kw]
 		total := successCount + failCount
-		if total >= 3 && float64(successCount)/float64(total) > 0.7 {
-			pattern := fmt.Sprintf("✅ 推理包含\"%s\"时成功率%.0f%%，值得信任",
-				kw, float64(successCount)/float64(total)*100)
+		winRate := float64(successCount) / float64(total)
+
+		// 根据成功率要求不同的样本量
+		minSamples := 15
+		if winRate > 0.95 {
+			minSamples = 25 // 100%成功率需要更多样本
+		}
+
+		if total >= minSamples && winRate > 0.7 {
+			confidence := "中等"
+			if total >= 40 {
+				confidence = "高"
+			} else if total < 25 {
+				confidence = "低"
+			}
+
+			pattern := fmt.Sprintf("✅ 推理包含\"%s\"时成功率%.0f%%（%d胜%d负，样本:%d，置信度:%s）",
+				kw, winRate*100, successCount, failCount, total, confidence)
 			summary.SuccessPatterns = append(summary.SuccessPatterns, pattern)
 		}
 	}

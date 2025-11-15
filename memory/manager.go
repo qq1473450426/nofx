@@ -288,6 +288,22 @@ func formatHardConstraints(constraints []string) string {
 func formatLearningSummary(summary *LearningSummary) string {
 	var result string
 
+	// 📊 统计可靠性警告（样本量不足时提醒）
+	completedTrades := 0
+	for signalName, stat := range summary.SignalStats {
+		_ = signalName // 避免未使用变量警告
+		if stat.TotalCount > 0 {
+			completedTrades += stat.TotalCount
+			break // 只需要知道有交易即可
+		}
+	}
+
+	if completedTrades > 0 && completedTrades < 50 {
+		result += "### ⚠️  统计可靠性提醒\n\n"
+		result += fmt.Sprintf("当前总交易样本较少，统计结果仅供参考。\n")
+		result += "建议积累至少50笔交易后，学习总结会更加可靠。\n\n"
+	}
+
 	// 1️⃣ 失败模式（优先显示）
 	if len(summary.FailurePatterns) > 0 {
 		result += "### ⚠️  识别到的失败模式\n\n"
@@ -321,19 +337,28 @@ func formatLearningSummary(summary *LearningSummary) string {
 		result += "\n"
 	}
 
-	// 4️⃣ 信号统计（只显示样本量足够的，≥5次）
+	// 4️⃣ 信号统计（样本量≥20，显示置信度）
 	if len(summary.SignalStats) > 0 {
-		result += "### 🎯 关键信号成功率（样本≥5）\n\n"
+		result += "### 🎯 关键信号成功率（样本≥20）\n\n"
 		for _, stat := range summary.SignalStats {
-			if stat.TotalCount >= 5 {
+			if stat.TotalCount >= 20 {
 				emoji := "✅"
 				if stat.WinRate < 0.4 {
 					emoji = "❌"
 				} else if stat.WinRate < 0.5 {
 					emoji = "⚠️"
 				}
-				result += fmt.Sprintf("- %s \"%s\": %.0f%% (%d胜/%d负)\n",
-					emoji, stat.SignalName, stat.WinRate*100, stat.WinCount, stat.LossCount)
+
+				// 置信度标签
+				confidence := "中等"
+				if stat.TotalCount >= 50 {
+					confidence = "高"
+				} else if stat.TotalCount < 30 {
+					confidence = "低"
+				}
+
+				result += fmt.Sprintf("- %s \"%s\": %.0f%% (%d胜/%d负，样本:%d，置信度:%s)\n",
+					emoji, stat.SignalName, stat.WinRate*100, stat.WinCount, stat.LossCount, stat.TotalCount, confidence)
 			}
 		}
 		result += "\n"
