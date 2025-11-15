@@ -414,13 +414,16 @@ func (o *DecisionOrchestrator) GetFullDecisionPredictive(ctx *Context) (*FullDec
 func (o *DecisionOrchestrator) shouldClosePosition(pos PositionInfoInput, prediction *types.Prediction) bool {
 	holdDuration := time.Since(pos.OpenTime)
 
-	// 1. 🔧 修复：如果预测方向与持仓方向完全相反，且概率>65% → 立即平仓
-	// 不应该等30分钟，方向错了就要及时止损
+	// 1. 如果预测方向与持仓方向完全相反，且概率>65% 且 持仓>30分钟 → 平仓
 	if pos.Side == "long" && prediction.Direction == "down" && prediction.Probability > 0.65 {
-		return true
+		if holdDuration > 30*time.Minute {
+			return true
+		}
 	}
 	if pos.Side == "short" && prediction.Direction == "up" && prediction.Probability > 0.65 {
-		return true
+		if holdDuration > 30*time.Minute {
+			return true
+		}
 	}
 
 	// 2. 如果已经亏损>10% → 止损
