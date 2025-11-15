@@ -150,9 +150,7 @@ func (m *Manager) GetContextPrompt() string {
 		return `## 📝 你的记忆
 
 这是你的第一次交易。你没有任何历史记录，从空白开始学习。
-
-## 🛡️ 基础风控要求（必须遵守）
-` + formatHardConstraints(m.memory.HardConstraints)
+`
 	}
 
 	prompt := fmt.Sprintf("## 📝 你的最近决策（总共%d笔交易）\n\n", m.memory.TotalTrades)
@@ -191,10 +189,6 @@ func (m *Manager) GetContextPrompt() string {
 		}
 		prompt += "\n"
 	}
-
-	// 添加硬约束
-	prompt += "## 🛡️ 基础风控要求（必须遵守）\n\n"
-	prompt += formatHardConstraints(m.memory.HardConstraints)
 
 	// 🧠 添加学习总结（如果有的话）
 	if m.memory.LearningSummary != nil && m.memory.TotalTrades >= 10 {
