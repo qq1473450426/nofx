@@ -184,11 +184,19 @@ func (agent *PredictionAgent) buildPredictionPrompt(ctx *PredictionContext) (sys
 - p:价格 | 1h/4h/24h:涨跌幅% | r7/r14:RSI指标
 - m:MACD值 | ms:MACD信号线（检查金叉死叉）
 - e20/e50:EMA均线 | atr14:波动率（止损参考）
+- adx:趋势强度(0-100, <20震荡避免, 20-25趋势形成, >25强趋势)
+- +di/-di:多空力量对比（+di>-di看涨，反之看跌）
 - vol24h:24h成交额(百万USDT, >100M流动性好, <50M风险高)
 - f:资金费率 | fTrend:费率趋势(上升/下降/稳定)
 - oiΔ4h/24h:持仓量变化% (>5%动能强)
 - fgi:恐慌贪婪指数(0-100, <25恐慌, >75贪婪)
 - social:社交情绪 | liqL/S:清算密集区
+
+ADX使用策略:
+- ADX<20: 震荡市场，跳过或降低概率（即使有金叉也可能是假信号）
+- ADX>25 + MACD金叉: 高质量信号，提高概率
+- ADX>25 + 超卖反弹: 真正趋势反转，可抄底
+- ADX下降: 趋势减弱，考虑止盈
 
 输出规则:
 - probability: 0.50-1.00; <0.58输出neutral
@@ -280,6 +288,14 @@ func (agent *PredictionAgent) buildUserPrompt(ctx *PredictionContext) string {
 		compactData["ms"] = md.MACDSignal       // 🆕 MACD Signal线
 		if md.Volume24h > 0 {
 			compactData["vol24h"] = md.Volume24h / 1e6 // 🆕 24h成交额(M USDT)
+		}
+		// 🆕 ADX趋势强度指标
+		if md.CurrentADX > 0 {
+			compactData["adx"] = md.CurrentADX // 🆕 趋势强度(0-100)
+			if md.CurrentPlusDI > 0 || md.CurrentMinusDI > 0 {
+				compactData["+di"] = md.CurrentPlusDI  // 🆕 多头力量
+				compactData["-di"] = md.CurrentMinusDI // 🆕 空头力量
+			}
 		}
 
 		// === 方案B维度（+30 tokens）===

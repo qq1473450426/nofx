@@ -140,6 +140,9 @@ type Data struct {
 	MACDSignal        float64 // 🆕 MACD信号线（9期EMA of MACD）
 	CurrentRSI7       float64
 	CurrentRSI14      float64 // 🆕 当前RSI14
+	CurrentADX        float64 // 🆕 ADX趋势强度指标(0-100)
+	CurrentPlusDI     float64 // 🆕 +DI方向指标
+	CurrentMinusDI    float64 // 🆕 -DI方向指标
 	Volume24h         float64 // 🆕 24小时成交额(USDT)
 	OpenInterest      *OIData
 	FundingRate       float64
@@ -232,6 +235,7 @@ func computeMarketData(symbol string) (*Data, error) {
 	macdSignal := calculateMACDSignal(confirmedKlines) // 🆕 MACD信号线
 	currentRSI7 := calculateRSI(confirmedKlines, 7)
 	currentRSI14 := calculateRSI(confirmedKlines, 14) // 🆕 RSI14
+	currentADX, currentPlusDI, currentMinusDI := calculateADX(confirmedKlines, 14) // 🆕 ADX趋势强度
 
 	// 🎯 根据K线周期动态计算索引
 	// 计算每个时间段需要回溯多少根K线
@@ -272,10 +276,13 @@ func computeMarketData(symbol string) (*Data, error) {
 		PriceChange24h:    priceChange24h, // 🆕
 		CurrentEMA20:      currentEMA20,
 		CurrentMACD:       currentMACD,
-		MACDSignal:        macdSignal,   // 🆕
+		MACDSignal:        macdSignal,       // 🆕
 		CurrentRSI7:       currentRSI7,
-		CurrentRSI14:      currentRSI14, // 🆕
-		Volume24h:         volume24h,    // 🆕
+		CurrentRSI14:      currentRSI14,     // 🆕
+		CurrentADX:        currentADX,       // 🆕 ADX趋势强度
+		CurrentPlusDI:     currentPlusDI,    // 🆕 +DI方向指标
+		CurrentMinusDI:    currentMinusDI,   // 🆕 -DI方向指标
+		Volume24h:         volume24h,        // 🆕
 		OpenInterest:      oiData,
 		FundingRate:       fundingRate,
 		IntradaySeries:    intradayData,
@@ -612,6 +619,110 @@ func calculateATR(klines []Kline, period int) float64 {
 	}
 
 	return atr
+}
+
+// calculateADX 计算ADX (Average Directional Index) 趋势强度指标
+// 返回：adx, +DI, -DI
+func calculateADX(klines []Kline, period int) (adx, plusDI, minusDI float64) {
+	if len(klines) < period*2+1 {
+		return 0, 0, 0
+	}
+
+	// 1. 计算TR (True Range), +DM, -DM
+	n := len(klines)
+	trValues := make([]float64, n-1)
+	plusDM := make([]float64, n-1)
+	minusDM := make([]float64, n-1)
+
+	for i := 1; i < n; i++ {
+		high := klines[i].High
+		low := klines[i].Low
+		prevClose := klines[i-1].Close
+		prevHigh := klines[i-1].High
+		prevLow := klines[i-1].Low
+
+		// TR = max(high-low, abs(high-prevClose), abs(low-prevClose))
+		tr1 := high - low
+		tr2 := math.Abs(high - prevClose)
+		tr3 := math.Abs(low - prevClose)
+		trValues[i-1] = math.Max(tr1, math.Max(tr2, tr3))
+
+		// +DM和-DM
+		highDiff := high - prevHigh
+		lowDiff := prevLow - low
+
+		if highDiff > lowDiff && highDiff > 0 {
+			plusDM[i-1] = highDiff
+		}
+		if lowDiff > highDiff && lowDiff > 0 {
+			minusDM[i-1] = lowDiff
+		}
+	}
+
+	// 2. 计算平滑的TR, +DM, -DM (使用Wilder平滑)
+	smoothTR := wilderSmooth(trValues, period)
+	smoothPlusDM := wilderSmooth(plusDM, period)
+	smoothMinusDM := wilderSmooth(minusDM, period)
+
+	// 3. 计算+DI和-DI
+	if smoothTR > 0 {
+		plusDI = (smoothPlusDM / smoothTR) * 100
+		minusDI = (smoothMinusDM / smoothTR) * 100
+	}
+
+	// 4. 计算DX序列
+	dxValues := make([]float64, 0, len(trValues)-period+1)
+	for i := period - 1; i < len(trValues); i++ {
+		// 计算这个点的平滑TR, +DM, -DM
+		tmpTR := trValues[i]
+		tmpPlusDM := plusDM[i]
+		tmpMinusDM := minusDM[i]
+
+		// 向前平滑
+		for j := 1; j < period && i-j >= 0; j++ {
+			tmpTR = (tmpTR*float64(period-1) + trValues[i-j]) / float64(period)
+			tmpPlusDM = (tmpPlusDM*float64(period-1) + plusDM[i-j]) / float64(period)
+			tmpMinusDM = (tmpMinusDM*float64(period-1) + minusDM[i-j]) / float64(period)
+		}
+
+		if tmpTR > 0 {
+			tmpPlusDI := (tmpPlusDM / tmpTR) * 100
+			tmpMinusDI := (tmpMinusDM / tmpTR) * 100
+			diSum := tmpPlusDI + tmpMinusDI
+			if diSum > 0 {
+				dx := math.Abs(tmpPlusDI-tmpMinusDI) / diSum * 100
+				dxValues = append(dxValues, dx)
+			}
+		}
+	}
+
+	// 5. ADX = DX的period期平滑平均
+	if len(dxValues) >= period {
+		adx = wilderSmooth(dxValues, period)
+	}
+
+	return adx, plusDI, minusDI
+}
+
+// wilderSmooth 计算Wilder平滑移动平均（用于ADX计算）
+func wilderSmooth(values []float64, period int) float64 {
+	if len(values) < period {
+		return 0
+	}
+
+	// 初始SMA
+	sum := 0.0
+	for i := 0; i < period; i++ {
+		sum += values[i]
+	}
+	smoothed := sum / float64(period)
+
+	// Wilder平滑：smoothed = (smoothed * (period-1) + newValue) / period
+	for i := period; i < len(values); i++ {
+		smoothed = (smoothed*float64(period-1) + values[i]) / float64(period)
+	}
+
+	return smoothed
 }
 
 // calculateIntradaySeries 计算日内系列数据

@@ -147,11 +147,25 @@ func (t *FuturesTrader) GetPositions() ([]map[string]interface{}, error) {
 		entryPrice := posMap["entryPrice"].(float64) // 需要入场价用于保本保护
 		markPrice := posMap["markPrice"].(float64)
 		unRealizedProfit := posMap["unRealizedProfit"].(float64)
-		_ = int(posMap["leverage"].(float64)) // unused
+		leverage := int(posMap["leverage"].(float64))
 		positionAmt := posMap["positionAmt"].(float64)
 
-		// 🔧 修复：计算实际价格变动百分比（不是杠杆盈利率）
-		// 这是价格真实涨跌幅，与杠杆无关
+		// 🔧 修复：使用盈利百分比而不是价格变动百分比
+		// 问题：之前使用价格变动（0.75%），但6倍杠杆时盈利是4.49%
+		//       导致即使盈利4.49%，因为价格变动<2%而不触发移动止损
+		// 修复：计算相对于保证金的盈利百分比
+
+		// 计算保证金（仓位价值 / 杠杆）
+		positionValue := math.Abs(positionAmt) * entryPrice
+		margin := positionValue / float64(leverage)
+
+		// 计算盈利百分比（盈利/保证金）
+		var profitPct float64
+		if margin > 0 {
+			profitPct = (unRealizedProfit / margin) * 100
+		}
+
+		// 同时计算价格变动百分比（用于保护比例计算）
 		var priceMovePct float64
 		if side == "long" {
 			priceMovePct = ((markPrice - entryPrice) / entryPrice) * 100
@@ -159,12 +173,12 @@ func (t *FuturesTrader) GetPositions() ([]map[string]interface{}, error) {
 			priceMovePct = ((entryPrice - markPrice) / entryPrice) * 100
 		}
 
-		// 【优化1】触发阈值：价格变动≥2%时才触发移动止损
-		// 说明：5%阈值太高导致移动止损从未生效（实际市场波动0.x%-1.71%）
-		//       降低到2%后，能够实际保护盈利（例如SOL曾达13.64%利润但未保护）
-		if priceMovePct < 2.0 {
-			log.Printf("💤 [跳过移动止损] %s %s | 价格变动%.2f%% < 2.0%% (阈值未达到)",
-				symbol, side, priceMovePct)
+		// 【优化1】触发阈值：盈利≥5%时才触发移动止损
+		// 说明：使用盈利百分比代替价格变动，统一适用于所有杠杆
+		//       5%盈利对于6x-9x杠杆都是合理的保护阈值
+		if profitPct < 5.0 {
+			log.Printf("💤 [跳过移动止损] %s %s | 盈利%.2f%% < 5.0%% (阈值未达到)",
+				symbol, side, profitPct)
 			continue
 		}
 
@@ -179,8 +193,8 @@ func (t *FuturesTrader) GetPositions() ([]map[string]interface{}, error) {
 			continue
 		}
 
-		// 🔧 修复：根据实际价格变动（不是杠杆盈利）决定止损位置
-		// 关键改进：止损应该跟随价格上涨，而不是给过大回撤空间
+		// 🔧 根据价格变动决定保护比例（不是触发条件）
+		// 价格变动越大，保护比例越高
 		//
 		// 新策略：止损 = 入场价 + (当前价格 - 入场价) × 保护比例
 		// 例如：价格涨3%，保护70%利润 → 止损在入场价+2.1%
@@ -193,8 +207,10 @@ func (t *FuturesTrader) GetPositions() ([]map[string]interface{}, error) {
 			protectionRatio = 0.70  // 价格涨≥7%，保护70%利润
 		} else if priceMovePct >= 5.0 {
 			protectionRatio = 0.60  // 价格涨≥5%，保护60%利润
+		} else if priceMovePct >= 3.0 {
+			protectionRatio = 0.50  // 价格涨≥3%，保护50%利润
 		} else {
-			protectionRatio = 0.50  // 价格涨<5%，保护50%利润（不会触发，因为触发阈值是5%）
+			protectionRatio = 0.40  // 价格涨<3%，保护40%利润（最低保护）
 		}
 
 		if side == "long" {
@@ -273,11 +289,11 @@ func (t *FuturesTrader) GetPositions() ([]map[string]interface{}, error) {
 					log.Printf("⚠️  [移动止损失败] %s %s: %v", symbol, side, err)
 				} else {
 					if oldStopLoss > 0 {
-						log.Printf("📈 [移动止损] %s %s | 盈利%.1f%% | 当前价%.4f | 止损 %.4f → %.4f | 保护%.0f%%利润",
-							symbol, strings.ToUpper(side), priceMovePct, markPrice, oldStopLoss, newStopLoss, protectionRatio*100)
+						log.Printf("📈 [移动止损] %s %s | 盈利%.2f%% (价格变动%.2f%%) | 当前价%.4f | 止损 %.4f → %.4f | 保护%.0f%%利润",
+							symbol, strings.ToUpper(side), profitPct, priceMovePct, markPrice, oldStopLoss, newStopLoss, protectionRatio*100)
 					} else {
-						log.Printf("📈 [设置止损] %s %s | 盈利%.1f%% | 当前价%.4f | 新止损 %.4f | 保护%.0f%%利润",
-							symbol, strings.ToUpper(side), priceMovePct, markPrice, newStopLoss, protectionRatio*100)
+						log.Printf("📈 [设置止损] %s %s | 盈利%.2f%% (价格变动%.2f%%) | 当前价%.4f | 新止损 %.4f | 保护%.0f%%利润",
+							symbol, strings.ToUpper(side), profitPct, priceMovePct, markPrice, newStopLoss, protectionRatio*100)
 					}
 				}
 			}
