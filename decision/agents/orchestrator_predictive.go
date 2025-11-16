@@ -333,10 +333,19 @@ func (o *DecisionOrchestrator) GetFullDecisionPredictive(ctx *Context) (*FullDec
 				}
 
 				// 🆕 入场时机验证（防止追涨杀跌）
-				timingErr := validateEntryTiming(vp.prediction.Direction, marketData)
+				entryEngine := NewEntryTimingEngine()
+				entryDecision, timingErr := entryEngine.Decide(vp.prediction, marketData)
 				if timingErr != nil {
-					cotBuilder.WriteString(fmt.Sprintf("**%s**: %v\n\n", vp.symbol, timingErr))
-					log.Printf("⏸️  [%s] 入场时机不佳，跳过开仓: %v", vp.symbol, timingErr)
+					cotBuilder.WriteString(fmt.Sprintf("**%s**: 入场时机不佳 - %v\n\n", vp.symbol, timingErr))
+					log.Printf("⏸️  [%s] 入场时机不佳: %v", vp.symbol, timingErr)
+					continue
+				}
+
+				// TODO: 后续实现限价单逻辑
+				if entryDecision.Strategy == "wait_pullback" {
+					cotBuilder.WriteString(fmt.Sprintf("**%s**: ⏰ 需要等待回调到%.2f（当前%.2f），暂不支持限价单\n\n",
+						vp.symbol, entryDecision.LimitPrice, entryDecision.CurrentPrice))
+					log.Printf("⏸️  [%s] 需要等待回调（限价单功能开发中）: %s", vp.symbol, entryDecision.Reasoning)
 					continue
 				}
 
@@ -879,7 +888,9 @@ checkRiskReward:
 // 1. 15m涨跌幅（防追涨杀跌）
 // 2. RSI极端（防超买超卖）
 // 3. EMA趋势（大方向别反着来）
-func validateEntryTiming(direction string, md *market.Data) error {
+// 🔧 已弃用：使用EntryTimingEngine替代
+// 保留此函数作为参考
+func validateEntryTiming_DEPRECATED(direction string, md *market.Data) error {
 	if md == nil {
 		return fmt.Errorf("市场数据为空")
 	}
