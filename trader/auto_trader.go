@@ -1664,6 +1664,34 @@ func (at *AutoTrader) buildTradeEntry(
 		}
 	}
 
+	// 🆕 捕获市场数值快照（用于精准复盘）
+	var marketSnapshot *memory.MarketSnapshot
+	if md, ok := ctx.MarketDataMap[decision.Symbol]; ok && md != nil && md.LongerTermContext != nil {
+		// 计算价格相对EMA的偏离度
+		priceVsEMA20Pct := ((md.CurrentPrice - md.LongerTermContext.EMA20) / md.LongerTermContext.EMA20) * 100
+		priceVsEMA50Pct := ((md.CurrentPrice - md.LongerTermContext.EMA50) / md.LongerTermContext.EMA50) * 100
+
+		// 计算MACD柱状图（MACD - 信号线）
+		macdHist := md.CurrentMACD - md.MACDSignal
+
+		marketSnapshot = &memory.MarketSnapshot{
+			RSI7:            md.CurrentRSI7,
+			RSI14:           md.CurrentRSI14,
+			MACD:            md.CurrentMACD,
+			MACDSignal:      md.MACDSignal,
+			MACDHist:        macdHist,
+			ADX:             md.CurrentADX,
+			PlusDI:          md.CurrentPlusDI,
+			MinusDI:         md.CurrentMinusDI,
+			PriceChange1h:   md.PriceChange1h,
+			PriceChange4h:   md.PriceChange4h,
+			PriceChange24h:  md.PriceChange24h,
+			PriceVsEMA20Pct: priceVsEMA20Pct,
+			PriceVsEMA50Pct: priceVsEMA50Pct,
+			CurrentPrice:    md.CurrentPrice,
+		}
+	}
+
 	return memory.TradeEntry{
 		Cycle:              at.callCount,
 		Timestamp:          time.Now(),
@@ -1681,6 +1709,7 @@ func (at *AutoTrader) buildTradeEntry(
 		ExitPrice:          exitPrice,
 		PositionPct:        positionPct,
 		Leverage:           decision.Leverage,
+		MarketSnapshot:     marketSnapshot,
 		HoldMinutes:        holdMinutes,
 		ReturnPct:          returnPct,
 		Result:             result,

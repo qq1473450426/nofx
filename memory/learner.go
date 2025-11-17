@@ -65,6 +65,9 @@ func (m *Manager) UpdateLearningSummary() error {
 	// 2. 识别失败模式
 	m.identifyFailurePatterns(summary)
 
+	// 🆕 2.5. 识别基于市场快照的精准失败模式
+	m.identifyMarketConditionPatterns(summary)
+
 	// 3. 总结成功经验
 	m.identifySuccessPatterns(summary)
 
@@ -341,4 +344,165 @@ func extractKeywords(text string) []string {
 	}
 
 	return keywords
+}
+
+// 🆕 identifyMarketConditionPatterns 识别基于市场快照的精准失败模式
+func (m *Manager) identifyMarketConditionPatterns(summary *LearningSummary) {
+	// 统计各种市场条件下的成功率
+	type ConditionStats struct {
+		wins  int
+		total int
+	}
+
+	stats := make(map[string]*ConditionStats)
+
+	for _, trade := range m.memory.RecentTrades {
+		// 只分析已完成且有市场快照的交易
+		if trade.Result == "" || trade.MarketSnapshot == nil {
+			continue
+		}
+
+		ms := trade.MarketSnapshot
+		isWin := trade.Result == "win"
+
+		// 🔍 模式1：RSI超卖/超买时开仓
+		if trade.Action == "open" {
+			if trade.Side == "short" {
+				// 做空时RSI超卖（<40）
+				if ms.RSI14 < 40 || ms.RSI7 < 40 {
+					key := "做空_RSI超卖"
+					if stats[key] == nil {
+						stats[key] = &ConditionStats{}
+					}
+					stats[key].total++
+					if isWin {
+						stats[key].wins++
+					}
+				}
+
+				// 做空时MACD金叉（看涨信号）
+				if ms.MACD > ms.MACDSignal {
+					key := "做空_MACD金叉"
+					if stats[key] == nil {
+						stats[key] = &ConditionStats{}
+					}
+					stats[key].total++
+					if isWin {
+						stats[key].wins++
+					}
+				}
+
+				// 做空时价格急跌（1h跌幅>5%）
+				if ms.PriceChange1h < -5.0 {
+					key := "做空_急跌后追空"
+					if stats[key] == nil {
+						stats[key] = &ConditionStats{}
+					}
+					stats[key].total++
+					if isWin {
+						stats[key].wins++
+					}
+				}
+			} else if trade.Side == "long" {
+				// 做多时RSI超买（>70）
+				if ms.RSI14 > 70 || ms.RSI7 > 70 {
+					key := "做多_RSI超买"
+					if stats[key] == nil {
+						stats[key] = &ConditionStats{}
+					}
+					stats[key].total++
+					if isWin {
+						stats[key].wins++
+					}
+				}
+
+				// 做多时MACD死叉（看跌信号）
+				if ms.MACD < ms.MACDSignal {
+					key := "做多_MACD死叉"
+					if stats[key] == nil {
+						stats[key] = &ConditionStats{}
+					}
+					stats[key].total++
+					if isWin {
+						stats[key].wins++
+					}
+				}
+
+				// 做多时价格急涨（1h涨幅>5%）
+				if ms.PriceChange1h > 5.0 {
+					key := "做多_急涨后追多"
+					if stats[key] == nil {
+						stats[key] = &ConditionStats{}
+					}
+					stats[key].total++
+					if isWin {
+						stats[key].wins++
+					}
+				}
+			}
+
+			// 🔍 模式2：ADX过低（震荡市）
+			if ms.ADX < 25 {
+				key := "ADX<25震荡市开仓"
+				if stats[key] == nil {
+					stats[key] = &ConditionStats{}
+				}
+				stats[key].total++
+				if isWin {
+					stats[key].wins++
+				}
+			}
+
+			// 🔍 模式3：价格偏离EMA过远
+			if trade.Side == "long" && ms.PriceVsEMA20Pct > 3.0 {
+				key := "做多_价格高于EMA20超3%"
+				if stats[key] == nil {
+					stats[key] = &ConditionStats{}
+				}
+				stats[key].total++
+				if isWin {
+					stats[key].wins++
+				}
+			}
+			if trade.Side == "short" && ms.PriceVsEMA20Pct < -3.0 {
+				key := "做空_价格低于EMA20超3%"
+				if stats[key] == nil {
+					stats[key] = &ConditionStats{}
+				}
+				stats[key].total++
+				if isWin {
+					stats[key].wins++
+				}
+			}
+		}
+	}
+
+	// 🚨 将失败率高的模式添加到FailurePatterns
+	for condition, stat := range stats {
+		if stat.total < 5 {
+			continue // 样本量太少，不足以形成模式
+		}
+
+		winRate := float64(stat.wins) / float64(stat.total)
+		lossRate := 1.0 - winRate
+
+		// 失败率 > 70% 视为明显失败模式
+		if lossRate > 0.7 {
+			pattern := fmt.Sprintf("🔴 市场条件失败模式：%s 失败率%.0f%%（%d胜%d负，样本:%d）",
+				condition, lossRate*100, stat.wins, stat.total-stat.wins, stat.total)
+			summary.FailurePatterns = append(summary.FailurePatterns, pattern)
+		}
+		// 失败率 50-70% 视为警告模式
+		if lossRate >= 0.5 && lossRate <= 0.7 {
+			pattern := fmt.Sprintf("⚠️  市场条件警告：%s 失败率%.0f%%（%d胜%d负，样本:%d）",
+				condition, lossRate*100, stat.wins, stat.total-stat.wins, stat.total)
+			summary.FailurePatterns = append(summary.FailurePatterns, pattern)
+		}
+		// 成功率 > 70% 视为成功模式
+		if winRate > 0.7 {
+			pattern := fmt.Sprintf("✅ 市场条件成功模式：%s 成功率%.0f%%（%d胜%d负，样本:%d）",
+				condition, winRate*100, stat.wins, stat.total-stat.wins, stat.total)
+			summary.SuccessPatterns = append(summary.SuccessPatterns, pattern)
+		}
+	}
 }

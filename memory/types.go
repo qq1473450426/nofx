@@ -77,10 +77,43 @@ type TradeEntry struct {
 	PositionPct float64 `json:"position_pct"` // 仓位占比%
 	Leverage    int     `json:"leverage,omitempty"`
 
+	// 🆕 市场数值快照（关键技术指标）
+	MarketSnapshot *MarketSnapshot `json:"market_snapshot,omitempty"`
+
 	// 结果
 	HoldMinutes int     `json:"hold_minutes,omitempty"` // 持仓时长
 	ReturnPct   float64 `json:"return_pct"`             // 收益率%
 	Result      string  `json:"result"`                 // win/loss/break_even
+}
+
+// 🆕 MarketSnapshot 市场数值快照（用于精准复盘）
+// 记录开仓/平仓时的关键市场指标，帮助AI识别失败模式
+type MarketSnapshot struct {
+	// RSI指标（识别超买超卖）
+	RSI7  float64 `json:"rsi7"`  // 7周期RSI（更敏感）
+	RSI14 float64 `json:"rsi14"` // 14周期RSI（标准）
+
+	// MACD指标（识别趋势反转）
+	MACD       float64 `json:"macd"`        // MACD线
+	MACDSignal float64 `json:"macd_signal"` // 信号线
+	MACDHist   float64 `json:"macd_hist"`   // 柱状图（快速判断金叉/死叉）
+
+	// ADX & DI（识别趋势强度和方向）
+	ADX     float64 `json:"adx"`      // 趋势强度（0-100）
+	PlusDI  float64 `json:"plus_di"`  // 多头力量
+	MinusDI float64 `json:"minus_di"` // 空头力量
+
+	// 价格变化（识别追涨杀跌）
+	PriceChange1h  float64 `json:"price_change_1h"`  // 1小时涨跌幅%
+	PriceChange4h  float64 `json:"price_change_4h"`  // 4小时涨跌幅%
+	PriceChange24h float64 `json:"price_change_24h"` // 24小时涨跌幅%
+
+	// EMA位置（识别趋势）
+	PriceVsEMA20Pct float64 `json:"price_vs_ema20_pct"` // 价格相对EMA20偏离度%
+	PriceVsEMA50Pct float64 `json:"price_vs_ema50_pct"` // 价格相对EMA50偏离度%
+
+	// 当前价格（用于计算）
+	CurrentPrice float64 `json:"current_price"`
 }
 
 // OverallStats 整体统计（用于可视化）
