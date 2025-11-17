@@ -238,15 +238,15 @@ func (e *EntryTimingEngine) classifyEntryTiming(direction string, md *market.Dat
 			return "reject" // 跌太快，容易反弹
 		}
 
-		// ⏰ 第二道防线：等待反弹到更好位置
-		// 1. RSI偏低（虽未超卖，但需谨慎）
-		if rsi14 < 50 || rsi7 < 45 {
-			return "wait" // 等反弹到RSI50以上再做空
+		// ⏰ 第二道防线：等待反弹到更好位置（仅极端情况）
+		// 1. RSI接近超卖（真正需要谨慎的区域）
+		if rsi14 < 35 || rsi7 < 30 {
+			return "wait" // 等反弹到安全区域
 		}
 
-		// 2. 短期下跌较快
-		if priceChange1h < -2.0 || priceToEMA < -2.0 {
-			return "wait" // 等反弹
+		// 2. 短期下跌过快（真正的杀跌）
+		if priceChange1h < -3.5 || priceToEMA < -3.5 {
+			return "wait" // 跌太快，等反弹
 		}
 
 		// ✅ 健康做空条件（满足任意一组）
