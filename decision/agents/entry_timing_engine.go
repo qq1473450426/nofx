@@ -93,7 +93,7 @@ func (e *EntryTimingEngine) Decide(
 		}, nil
 
 	case "reject":
-		return nil, fmt.Errorf("入场条件不佳: %s", e.buildRejectReason(marketData))
+		return nil, fmt.Errorf("入场条件不佳: %s", e.buildRejectReason(prediction.Direction, marketData))
 
 	default:
 		return nil, fmt.Errorf("未知入场时机类型: %s", timing)
@@ -410,25 +410,60 @@ func (e *EntryTimingEngine) buildWaitReasoning(direction string, md *market.Data
 	}
 }
 
-// buildRejectReason 构建拒绝理由
-func (e *EntryTimingEngine) buildRejectReason(md *market.Data) string {
+// buildRejectReason 构建拒绝理由（包含具体市场数据）
+func (e *EntryTimingEngine) buildRejectReason(direction string, md *market.Data) string {
 	rsi14 := md.CurrentRSI14
+	rsi7 := md.CurrentRSI7
 	priceChange1h := md.PriceChange1h
+	macd := md.CurrentMACD
+	macdSignal := md.MACDSignal
+	ema20 := md.LongerTermContext.EMA20
+	priceToEMA := ((md.CurrentPrice - ema20) / ema20) * 100
 
-	if rsi14 > 75 {
-		return fmt.Sprintf("RSI=%.1f严重超买", rsi14)
-	}
-	if rsi14 < 25 {
-		return fmt.Sprintf("RSI=%.1f严重超卖", rsi14)
-	}
-	if priceChange1h > 6.0 {
-		return fmt.Sprintf("1h涨幅%.2f%%极端追高", priceChange1h)
-	}
-	if priceChange1h < -6.0 {
-		return fmt.Sprintf("1h跌幅%.2f%%极端杀跌", priceChange1h)
+	// 收集所有不合格的原因
+	reasons := []string{}
+
+	if direction == "up" {
+		// 做多拒绝原因
+		if rsi14 > 75 {
+			reasons = append(reasons, fmt.Sprintf("RSI14=%.1f严重超买(>75)", rsi14))
+		}
+		if priceChange1h > 6.0 {
+			reasons = append(reasons, fmt.Sprintf("1h涨幅%.2f%%极端追高(>6%%)", priceChange1h))
+		}
+		if priceToEMA > 4.0 {
+			reasons = append(reasons, fmt.Sprintf("价格高于EMA20达%.1f%%(>4%%)", priceToEMA))
+		}
+	} else if direction == "down" {
+		// 做空拒绝原因（更严格）
+		if rsi14 < 40 {
+			reasons = append(reasons, fmt.Sprintf("RSI14=%.1f超卖(<40)", rsi14))
+		}
+		if rsi7 < 40 {
+			reasons = append(reasons, fmt.Sprintf("RSI7=%.1f超卖(<40)", rsi7))
+		}
+		if macd > macdSignal && rsi14 < 55 {
+			reasons = append(reasons, fmt.Sprintf("MACD金叉(%.2f>%.2f)且RSI14=%.1f", macd, macdSignal, rsi14))
+		}
+		if priceChange1h < -5.0 {
+			reasons = append(reasons, fmt.Sprintf("1h跌幅%.2f%%急跌(<-5%%)", priceChange1h))
+		}
+		if priceToEMA < -4.0 {
+			reasons = append(reasons, fmt.Sprintf("价格低于EMA20达%.1f%%(<-4%%)", priceToEMA))
+		}
 	}
 
-	return "综合条件不佳"
+	// 如果没有具体原因，返回当前市场数据摘要
+	if len(reasons) == 0 {
+		return fmt.Sprintf("市场数据: RSI7=%.1f, RSI14=%.1f, MACD=%.2f/信号线=%.2f, 1h变化=%.2f%%, EMA偏离=%.1f%%",
+			rsi7, rsi14, macd, macdSignal, priceChange1h, priceToEMA)
+	}
+
+	// 返回所有原因
+	if len(reasons) == 1 {
+		return reasons[0]
+	}
+	return fmt.Sprintf("%s", reasons)
 }
 
 // abs 绝对值
