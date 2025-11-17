@@ -168,8 +168,11 @@ func (e *EntryTimingEngine) validateFundingRate(direction string, md *market.Dat
 func (e *EntryTimingEngine) classifyEntryTiming(direction string, md *market.Data) string {
 	currentPrice := md.CurrentPrice
 	rsi14 := md.CurrentRSI14
+	rsi7 := md.CurrentRSI7 // 🆕 增加RSI7检查（更敏感）
 	priceChange1h := md.PriceChange1h
 	ema20 := md.LongerTermContext.EMA20
+	macd := md.CurrentMACD
+	macdSignal := md.MACDSignal
 
 	// 计算价格相对EMA20的偏离度
 	priceToEMA := ((currentPrice - ema20) / ema20) * 100
@@ -190,8 +193,6 @@ func (e *EntryTimingEngine) classifyEntryTiming(direction string, md *market.Dat
 		}
 
 		// 组C：MACD刚金叉
-		macd := md.CurrentMACD
-		macdSignal := md.MACDSignal
 		if macd > macdSignal && rsi14 >= 40 && rsi14 <= 55 {
 			return "immediate"
 		}
@@ -210,37 +211,55 @@ func (e *EntryTimingEngine) classifyEntryTiming(direction string, md *market.Dat
 		return "immediate"
 
 	} else if direction == "down" {
-		// 做空：镜像逻辑
+		// 🔧 做空：严格防止接飞刀
 
-		// 组A：超买回调
-		if rsi14 > 55 && priceChange1h > 1.5 && md.CurrentADX > 20 {
+		// 🚫 第一道防线：严格拒绝超卖和MACD金叉
+		// 1. RSI超卖（双重检查：RSI7和RSI14）
+		if rsi14 < 40 || rsi7 < 40 {
+			return "reject" // RSI过低，可能反弹
+		}
+
+		// 2. MACD金叉信号（看涨，不应做空）
+		if macd > macdSignal && rsi14 < 55 {
+			return "reject" // MACD金叉，趋势可能反转
+		}
+
+		// 3. 杀跌过快
+		if priceChange1h < -5.0 || priceToEMA < -4.0 {
+			return "reject" // 跌太快，容易反弹
+		}
+
+		// ⏰ 第二道防线：等待反弹到更好位置
+		// 1. RSI偏低（虽未超卖，但需谨慎）
+		if rsi14 < 50 || rsi7 < 45 {
+			return "wait" // 等反弹到RSI50以上再做空
+		}
+
+		// 2. 短期下跌较快
+		if priceChange1h < -2.0 || priceToEMA < -2.0 {
+			return "wait" // 等反弹
+		}
+
+		// ✅ 健康做空条件（满足任意一组）
+
+		// 组A：超买回调（最理想）
+		if rsi14 > 60 && priceChange1h > 1.5 && md.CurrentADX > 20 {
 			return "immediate"
 		}
 
-		// 组B：EMA20附近
+		// 组B：EMA20附近（阻力位）
 		if priceToEMA >= -0.8 && priceToEMA <= 0.8 &&
-			rsi14 >= 40 && rsi14 <= 55 &&
-			priceChange1h > -2.0 {
+			rsi14 >= 50 && rsi14 <= 65 &&
+			priceChange1h > -1.0 {
 			return "immediate"
 		}
 
-		// 组C：MACD刚死叉
-		macd := md.CurrentMACD
-		macdSignal := md.MACDSignal
-		if macd < macdSignal && rsi14 >= 45 && rsi14 <= 60 {
+		// 组C：MACD死叉且RSI健康
+		if macd < macdSignal && rsi14 >= 50 && rsi14 <= 70 {
 			return "immediate"
 		}
 
-		// 🚫 拒绝入场
-		if rsi14 < 25 || priceChange1h < -6.0 || priceToEMA < -4.0 {
-			return "reject"
-		}
-
-		// ⏰ 等待反弹
-		if rsi14 < 35 || priceChange1h < -3.0 || priceToEMA < -2.0 {
-			return "wait"
-		}
-
+		// 其他情况：立即入场（但已通过上述防线过滤）
 		return "immediate"
 	}
 
