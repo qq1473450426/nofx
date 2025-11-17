@@ -181,14 +181,14 @@ func (agent *PredictionAgent) buildPredictionPrompt(ctx *PredictionContext) (sys
 【3. 硬禁止规则（BTC/ETH 专用，触发即 neutral & prob=0.50）】
 
 【做多禁止】
-- RSI7 > 78 或 RSI14 > 72              # 明显过度超买 → 禁止追涨
-- 1h涨幅 > 4% 且 价格 > EMA20 + 3%     # 大阳线 + 偏离均线
+- RSI7 > 75 或 RSI14 > 75              # 过度超买 → 禁止追涨（与Entry Engine统一）
+- 1h涨幅 > 6% 或 价格 > EMA20 + 4%     # 大阳线 + 偏离均线（与Entry Engine统一）
 - atr% > 3.5 且 1h涨幅 > 3.5%           # 高波动+大单边拉升
 - -DI > +DI * 1.5                        # 空头力量明显占优（≥50%）
 - ADX>25 且 p<EMA50 且 -DI>+DI           # 强下跌趋势中禁止抄底
 
 【做空禁止】
-- RSI7 < 22 或 RSI14 < 25              # 明显过度超卖 → 禁止杀跌
+- RSI7 < 35 或 RSI14 < 35              # 接近超卖 → 禁止杀跌（与Entry Engine统一）
 - 1h跌幅 < -4% 且 价格 < EMA20 - 3%    # 大阴线 + 跌破均线
 - atr% > 3.5 且 1h跌幅 < -3.5%          # 高波动+大单边下跌
 - +DI > -DI * 1.5                        # 多头力量明显占优（≥50%）

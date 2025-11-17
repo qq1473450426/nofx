@@ -206,8 +206,8 @@ func (e *EntryTimingEngine) classifyEntryTiming(direction string, md *market.Dat
 			return "immediate"
 		}
 
-		// 🚫 拒绝入场条件
-		if rsi14 > 75 || priceChange1h > 6.0 || priceToEMA > 4.0 {
+		// 🚫 拒绝入场条件（统一阈值75）
+		if rsi14 > 75 || rsi7 > 75 || priceChange1h > 6.0 || priceToEMA > 4.0 {
 			return "reject"
 		}
 
@@ -223,8 +223,8 @@ func (e *EntryTimingEngine) classifyEntryTiming(direction string, md *market.Dat
 		// 🔧 做空：严格防止接飞刀
 
 		// 🚫 第一道防线：严格拒绝超卖和MACD金叉
-		// 1. RSI超卖（双重检查：RSI7和RSI14）
-		if rsi14 < 40 || rsi7 < 40 {
+		// 1. RSI超卖（双重检查：RSI7和RSI14）- 统一阈值35（与Prompt一致）
+		if rsi14 < 35 || rsi7 < 35 {
 			return "reject" // RSI过低，可能反弹
 		}
 
@@ -239,6 +239,7 @@ func (e *EntryTimingEngine) classifyEntryTiming(direction string, md *market.Dat
 		}
 
 		// ⏰ 第二道防线：等待反弹到更好位置（仅极端情况）
+		// 注：由于第一道防线已设为35，此段代码不会触发，保留用于代码清晰度
 		// 1. RSI接近超卖（真正需要谨慎的区域）
 		if rsi14 < 35 || rsi7 < 30 {
 			return "wait" // 等反弹到安全区域
@@ -433,9 +434,12 @@ func (e *EntryTimingEngine) buildRejectReason(direction string, md *market.Data)
 	reasons := []string{}
 
 	if direction == "up" {
-		// 做多拒绝原因
+		// 做多拒绝原因（统一阈值75）
 		if rsi14 > 75 {
 			reasons = append(reasons, fmt.Sprintf("RSI14=%.1f严重超买(>75)", rsi14))
+		}
+		if rsi7 > 75 {
+			reasons = append(reasons, fmt.Sprintf("RSI7=%.1f严重超买(>75)", rsi7))
 		}
 		if priceChange1h > 6.0 {
 			reasons = append(reasons, fmt.Sprintf("1h涨幅%.2f%%极端追高(>6%%)", priceChange1h))
@@ -444,12 +448,12 @@ func (e *EntryTimingEngine) buildRejectReason(direction string, md *market.Data)
 			reasons = append(reasons, fmt.Sprintf("价格高于EMA20达%.1f%%(>4%%)", priceToEMA))
 		}
 	} else if direction == "down" {
-		// 做空拒绝原因（更严格）
-		if rsi14 < 40 {
-			reasons = append(reasons, fmt.Sprintf("RSI14=%.1f超卖(<40)", rsi14))
+		// 做空拒绝原因（统一阈值35）
+		if rsi14 < 35 {
+			reasons = append(reasons, fmt.Sprintf("RSI14=%.1f超卖(<35)", rsi14))
 		}
-		if rsi7 < 40 {
-			reasons = append(reasons, fmt.Sprintf("RSI7=%.1f超卖(<40)", rsi7))
+		if rsi7 < 35 {
+			reasons = append(reasons, fmt.Sprintf("RSI7=%.1f超卖(<35)", rsi7))
 		}
 		if macd > macdSignal && rsi14 < 55 {
 			reasons = append(reasons, fmt.Sprintf("MACD金叉(%.2f>%.2f)且RSI14=%.1f", macd, macdSignal, rsi14))
