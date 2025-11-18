@@ -20,6 +20,7 @@ type Context struct {
 	BTCETHLeverage  int
 	AltcoinLeverage int
 	MemoryPrompt    string // 🧠 AI记忆提示（Sprint 1）
+	UseLimitOrders  bool   // 是否使用限价单模式
 }
 
 // AccountInfo 账户信息

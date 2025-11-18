@@ -375,10 +375,36 @@ func (o *DecisionOrchestrator) GetFullDecisionPredictive(ctx *Context) (*FullDec
 					continue
 				}
 
-				// 🆕 限价单支持：如果需要等待回调，创建限价单决策
+				// 🆕 限价单支持：根据配置和入场时机决定是否使用限价单
 				isLimitOrder := false
 				limitPrice := 0.0
-				if entryDecision.Strategy == "wait_pullback" {
+
+				if ctx.UseLimitOrders {
+					// 全局限价单模式：强制使用限价单
+					isLimitOrder = true
+					if entryDecision.Strategy == "wait_pullback" {
+						// 需要等待回调：使用AI建议的回调价格
+						limitPrice = entryDecision.LimitPrice
+						cotBuilder.WriteString(fmt.Sprintf("**%s**: 📋 限价单 - 等待回调到%.4f（当前%.4f，回调%.2f%%）\n",
+							vp.symbol, limitPrice, entryDecision.CurrentPrice, entryDecision.PullbackPct))
+						cotBuilder.WriteString(fmt.Sprintf("  推理: %s\n\n", entryDecision.Reasoning))
+						log.Printf("📝 [%s] 限价单(回调): 等待%.4f (当前%.4f): %s",
+							vp.symbol, limitPrice, entryDecision.CurrentPrice, entryDecision.Reasoning)
+					} else {
+						// 立即入场时机：使用略低于/高于当前价的限价单（提高成交率）
+						currentPrice := marketData.CurrentPrice
+						if vp.prediction.Direction == "up" {
+							limitPrice = currentPrice * 0.999 // 做多：低于当前价0.1%
+						} else {
+							limitPrice = currentPrice * 1.001 // 做空：高于当前价0.1%
+						}
+						cotBuilder.WriteString(fmt.Sprintf("**%s**: 📋 限价单 - 即时价格%.4f（当前%.4f）\n",
+							vp.symbol, limitPrice, currentPrice))
+						log.Printf("📝 [%s] 限价单(即时): %.4f (当前%.4f)",
+							vp.symbol, limitPrice, currentPrice)
+					}
+				} else if entryDecision.Strategy == "wait_pullback" {
+					// 非全局限价单模式：仅在需要等待回调时使用限价单
 					isLimitOrder = true
 					limitPrice = entryDecision.LimitPrice
 					cotBuilder.WriteString(fmt.Sprintf("**%s**: ⏰ 限价单模式 - 等待回调到%.4f（当前%.4f，回调%.2f%%）\n",

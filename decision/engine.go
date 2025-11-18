@@ -70,6 +70,7 @@ type Context struct {
 	BTCETHLeverage  int                     `json:"-"` // BTC/ETH杠杆倍数（从配置读取）
 	AltcoinLeverage int                     `json:"-"` // 山寨币杠杆倍数（从配置读取）
 	MemoryPrompt    string                  `json:"-"` // 🧠 AI记忆提示（Sprint 1）
+	UseLimitOrders  bool                    `json:"-"` // 是否使用限价单模式
 }
 
 // Decision AI的交易决策
@@ -229,7 +230,8 @@ func convertToAgentContext(ctx *Context) *agents.Context {
 		Performance:     ctx.Performance,
 		BTCETHLeverage:  ctx.BTCETHLeverage,
 		AltcoinLeverage: ctx.AltcoinLeverage,
-		MemoryPrompt:    ctx.MemoryPrompt, // 🧠 传递AI记忆
+		MemoryPrompt:    ctx.MemoryPrompt,  // 🧠 传递AI记忆
+		UseLimitOrders:  ctx.UseLimitOrders, // 传递限价单模式配置
 	}
 }
 

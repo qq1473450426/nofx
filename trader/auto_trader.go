@@ -819,8 +819,9 @@ func (at *AutoTrader) buildTradingContext() (*decision.Context, error) {
 		},
 		Positions:      positionInfos,
 		CandidateCoins: candidateCoins,
-		Performance:    performance,   // 添加历史表现分析
-		MemoryPrompt:   memoryPrompt, // 🧠 注入交易员记忆
+		Performance:    performance,            // 添加历史表现分析
+		MemoryPrompt:   memoryPrompt,          // 🧠 注入交易员记忆
+		UseLimitOrders: at.config.UseLimitOrders, // 传递限价单模式配置
 	}
 
 	return ctx, nil
