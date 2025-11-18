@@ -163,18 +163,42 @@ func (agent *PredictionAgent) buildPredictionPrompt(ctx *PredictionContext) (sys
 	// 🆕 动态生成"最近错误教训"（基于实际表现）
 	mistakesSection := agent.buildMistakesSection(ctx)
 
-	systemPrompt = `你是一名专业的加密货币量化预测员，专为 BTC/ETH 预测短期走势（1h/4h/24h）。必须基于结构化数据、技术趋势和历史经验给出方向，并严格输出 JSON。
+	systemPrompt = `你是一名专业的加密货币量化预测员，专为 BTC/ETH 预测短期走势（1h/4h/24h）。必须综合考虑【账户风险+持仓情况+技术指标】做出决策，并严格输出 JSON。
+
+=====================
+【0. 🎯 综合决策框架（核心优先级）】
+
+⚠️ **决策优先级**（从高到低）：
+1. 账户风险控制（保证金占用、浮动盈亏）
+2. 持仓状态分析（盈亏、持仓时长、方向）
+3. 技术指标验证（趋势、动量、超买超卖）
+4. 市场情绪参考（资金费率、OI变化、情绪指数）
+
+✅ **必须遵守的决策逻辑**：
+- 账户浮亏 > 5% → 概率必须 ≤ 0.60，倾向neutral或降低风险
+- 账户浮亏 2-5% → 新机会概率需 ≥ 0.70
+- 持仓已满(3/3) → 新机会概率必须 > 0.80
+- 保证金占用 > 60% → 严禁看涨方向，倾向neutral
+- 保证金占用 > 40% → 降低预期收益(expected_move ≤ 2%)
+- 持仓有大幅盈利(>5%) → 考虑建议部分止盈（在reasoning中提示）
+- 持仓严重亏损(<-5%) → 考虑止损或观望（降低概率到0.55-0.60）
+
+📊 **持仓方向冲突处理**：
+- 已有多单且预测down → 如盈利>3%建议平仓，否则neutral观望
+- 已有空单且预测up → 如盈利>3%建议平仓，否则neutral观望
+- 持仓时长<4小时且盈亏不极端 → 倾向neutral继续持有
 
 =====================
 【1. 最近错误教训（自动注入）】
 ` + mistakesSection + `
 
 =====================
-【2. 决策原则（核心逻辑）】
-- 技术指标权重最高：EMA/MACD/RSI/ADX = 70%
-- 情绪/资金费率/社交等仅占 30%
-- 2~3 个关键指标一致 → 输出 up/down（0.65–0.75）
-- 信号轻微冲突 → 选优势方向，不要轻易 neutral
+【2. 技术分析原则（次要逻辑）】
+- 技术指标权重：EMA/MACD/RSI/ADX = 50%（降低权重）
+- 账户风险权重：持仓盈亏/保证金/风险等级 = 30%（新增）
+- 情绪/资金费率/社交等占 20%
+- 2~3 个关键指标一致 + 账户风险可控 → 输出 up/down（0.65–0.75）
+- 信号轻微冲突或账户有风险 → 选neutral或降低概率到0.50-0.60
 - 严格避免追涨/杀跌（BTC/ETH 专用规则见下方）
 
 =====================
@@ -227,9 +251,16 @@ ADX：
 =====================
 【6. 历史经验（交易记忆必须使用）】
 推理必须包含：
+- 当前账户风险状态（盈亏、保证金、持仓数量）
+- 持仓情况对新决策的影响（方向冲突、盈亏状态）
 - 当前市场是否类似过去盈利模式（提高概率）
 - 是否接近过往亏损模式（降低概率）
 - 如出现强烈相似 → 调整 probability ±0.03
+
+⚠️ **推理格式要求**：
+第1句：说明账户风险状态（如：账户浮亏-3.2%，风险偏高）
+第2-3句：技术分析（趋势、指标、信号）
+第4句：综合账户+技术的最终判断
 
 =====================
 【7. 概率 / 置信度规则】
@@ -377,20 +408,117 @@ func (agent *PredictionAgent) buildUserPrompt(ctx *PredictionContext) string {
 		}
 	}
 
+	// 🆕 账户-持仓-风险综合分析（核心优化）
 	if ctx != nil && ctx.Account != nil {
-		sb.WriteString(fmt.Sprintf("\n# 账户信息\n净值:%.0f 可用:%.0f 保证金:%.1f%%",
-			ctx.Account.TotalEquity, ctx.Account.AvailableBalance, ctx.Account.MarginUsedPct))
-		if ctx.SharpeRatio != 0 {
-			sb.WriteString(fmt.Sprintf(" 夏普:%.2f", ctx.SharpeRatio))
-		}
+		sb.WriteString("\n# 💰 账户风险全景\n")
+
+		// 1️⃣ 账户基本信息
+		sb.WriteString(fmt.Sprintf("账户净值: %.2f USDT | 可用余额: %.2f USDT (%.1f%%)\n",
+			ctx.Account.TotalEquity,
+			ctx.Account.AvailableBalance,
+			(ctx.Account.AvailableBalance/ctx.Account.TotalEquity)*100))
+
+		// 2️⃣ 风险指标
+		sb.WriteString(fmt.Sprintf("保证金占用: %.1f%% | ", ctx.Account.MarginUsedPct))
+
+		// 计算总未实现盈亏
+		totalUnrealizedPnL := 0.0
+		totalUnrealizedPnLPct := 0.0
 		if len(ctx.Positions) > 0 {
-			sb.WriteString("\n持仓: ")
-			var pieces []string
 			for _, pos := range ctx.Positions {
-				pieces = append(pieces, fmt.Sprintf("%s%s%+.1f%%", pos.Symbol[:3], pos.Side[:1], pos.UnrealizedPnLPct))
+				totalUnrealizedPnL += pos.UnrealizedPnL
 			}
-			sb.WriteString(strings.Join(pieces, " "))
+			totalUnrealizedPnLPct = (totalUnrealizedPnL / ctx.Account.TotalEquity) * 100
 		}
+
+		sb.WriteString(fmt.Sprintf("浮动盈亏: %+.2f USDT (%+.2f%%)\n",
+			totalUnrealizedPnL, totalUnrealizedPnLPct))
+
+		// 3️⃣ 风险等级评估
+		riskLevel := "低"
+		if ctx.Account.MarginUsedPct > 60 {
+			riskLevel = "高"
+		} else if ctx.Account.MarginUsedPct > 40 {
+			riskLevel = "中"
+		}
+		sb.WriteString(fmt.Sprintf("风险等级: %s | ", riskLevel))
+
+		if ctx.SharpeRatio != 0 {
+			sb.WriteString(fmt.Sprintf("夏普比率: %.2f", ctx.SharpeRatio))
+		}
+		sb.WriteString("\n")
+
+		// 4️⃣ 持仓详情（如果有）
+		if len(ctx.Positions) > 0 {
+			sb.WriteString(fmt.Sprintf("\n## 📊 当前持仓 (%d/3)\n", len(ctx.Positions)))
+			for i, pos := range ctx.Positions {
+				// 计算持仓时长
+				holdingTime := ""
+				if !pos.OpenTime.IsZero() {
+					duration := time.Since(pos.OpenTime)
+					hours := duration.Hours()
+					if hours < 1 {
+						holdingTime = fmt.Sprintf("%.0f分钟", duration.Minutes())
+					} else if hours < 24 {
+						holdingTime = fmt.Sprintf("%.1f小时", hours)
+					} else {
+						holdingTime = fmt.Sprintf("%.1f天", hours/24)
+					}
+				}
+
+				// 计算盈亏状态标识
+				pnlEmoji := "📈"
+				if pos.UnrealizedPnLPct < -3 {
+					pnlEmoji = "🔴" // 严重亏损
+				} else if pos.UnrealizedPnLPct < 0 {
+					pnlEmoji = "📉" // 轻微亏损
+				} else if pos.UnrealizedPnLPct > 5 {
+					pnlEmoji = "🟢" // 大幅盈利
+				}
+
+				sb.WriteString(fmt.Sprintf("[%d] %s %s %s | ",
+					i+1, pos.Symbol, strings.ToUpper(pos.Side), pnlEmoji))
+				sb.WriteString(fmt.Sprintf("入场:%.2f → 当前:%.2f | ",
+					pos.EntryPrice, pos.MarkPrice))
+				sb.WriteString(fmt.Sprintf("盈亏:%+.2f%% (%+.2f USDT) | ",
+					pos.UnrealizedPnLPct, pos.UnrealizedPnL))
+				sb.WriteString(fmt.Sprintf("杠杆:%dx | 持仓:%s\n",
+					pos.Leverage, holdingTime))
+			}
+
+			// 5️⃣ 持仓风险提示
+			sb.WriteString("\n⚠️ 决策要求:\n")
+
+			// 根据持仓盈亏给出建议
+			if totalUnrealizedPnLPct < -5 {
+				sb.WriteString("- 🚨 账户浮亏 > 5%，优先考虑减仓或止损，避免扩大亏损\n")
+				sb.WriteString("- 新开仓必须有 > 75% 概率且与现有持仓风险对冲\n")
+			} else if totalUnrealizedPnLPct < -2 {
+				sb.WriteString("- ⚠️ 账户有浮亏，新机会需要 > 70% 概率\n")
+				sb.WriteString("- 检查亏损持仓是否需要止损或调整\n")
+			} else if totalUnrealizedPnLPct > 5 {
+				sb.WriteString("- ✅ 账户有盈利，可考虑部分止盈锁定利润\n")
+				sb.WriteString("- 检查盈利持仓是否达到移动止损条件\n")
+			}
+
+			// 根据持仓数量给出建议
+			if len(ctx.Positions) >= 3 {
+				sb.WriteString("- 🔒 持仓已满(3/3)，新机会必须 > 80% 概率才考虑替换最弱持仓\n")
+			} else if len(ctx.Positions) >= 2 {
+				sb.WriteString(fmt.Sprintf("- 📌 已有%d个持仓，剩余1个槽位，新机会需谨慎评估\n", len(ctx.Positions)))
+			}
+
+			// 根据保证金使用率给出建议
+			if ctx.Account.MarginUsedPct > 60 {
+				sb.WriteString("- 🛑 保证金占用 > 60%，严禁新开仓，优先降低风险敞口\n")
+			} else if ctx.Account.MarginUsedPct > 40 {
+				sb.WriteString("- ⚠️ 保证金占用 > 40%，新开仓需降低杠杆或仓位\n")
+			}
+		} else {
+			sb.WriteString("\n## 📊 当前持仓: 无\n")
+			sb.WriteString("✅ 可自由开仓，建议首仓使用较低杠杆测试市场\n")
+		}
+
 		sb.WriteString("\n")
 	}
 
