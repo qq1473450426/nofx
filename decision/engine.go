@@ -143,6 +143,10 @@ func convertAgentDecisions(agentDecisions []agents.Decision) []Decision {
 			Confidence:      ad.Confidence,
 			RiskUSD:         ad.RiskUSD,
 			Reasoning:       ad.Reasoning,
+			// 限价单字段
+			IsLimitOrder: ad.IsLimitOrder,
+			LimitPrice:   ad.LimitPrice,
+			CurrentPrice: ad.CurrentPrice,
 		}
 	}
 	return decisions
